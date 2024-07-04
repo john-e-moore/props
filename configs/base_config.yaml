@@ -1,7 +1,8 @@
 # base_config.yaml
+
 aws:
-  s3_bucket: your-s3-bucket
-  region: your-region
+  region: us-east-2
+  bucket: mushroomsundays
 
 prefect:
   flow_storage: data/prefect_flows/
@@ -11,7 +12,15 @@ logging:
   log_dir: logs/
   log_level: DEBUG
 
+requests:
+  headers:
+    user-agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    content-type: "application/json; charset=utf-8"
+
 draftkings:
+  url_template: "https://sportsbook-nash.draftkings.com/sites/US-SB/api/v5/eventgroups/{eventgroup_id}/categories/{category_id}/subcategories/{subcategory_id}?format=json"
+  sleep_min: 3
+  sleep_max: 10
   eventgroups:
 - id: 84240
   name: mlb
