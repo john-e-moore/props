@@ -1,0 +1,10 @@
+# prod_config.yaml
+duckdb:
+  db_path: data/warehouse/prod_warehouse.duckdb
+
+logging:
+  log_level: INFO
+
+prefect:
+  agent:
+    type: cloud

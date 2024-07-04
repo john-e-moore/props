@@ -1,0 +1,12 @@
+# base_config.yaml
+aws:
+  s3_bucket: your-s3-bucket
+  region: your-region
+
+prefect:
+  flow_storage: data/prefect_flows/
+  log_level: INFO
+
+logging:
+  log_dir: logs/
+  log_level: DEBUG

@@ -1,0 +1,10 @@
+# dev_config.yaml
+duckdb:
+  db_path: data/warehouse/dev_warehouse.duckdb
+
+logging:
+  log_level: DEBUG
+
+prefect:
+  agent:
+    type: local
