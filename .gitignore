@@ -1,3 +1,4 @@
 *.duckdb
 venv/
-config.yml
+configs/
+pat.txt

@@ -10,3 +10,53 @@ prefect:
 logging:
   log_dir: logs/
   log_level: DEBUG
+
+draftkings:
+  eventgroups:
+- id: 84240
+  name: mlb
+  categories:
+    - id: 743
+      name: batter-props
+      subcategories:
+        - id: 6606
+          name: home-runs
+        - id: 12883
+          name: first-home-run
+        - id: 6719
+          name: hits
+        - id: 6607
+          name: total-bases
+        - id: 8025
+          name: rbis
+        - id: 7979
+          name: runs-scored
+        - id: 12149
+          name: hits-runs-rbis
+        - id: 9872
+          name: stolen-bases
+        - id: 6605
+          name: strikeouts
+        - id: 11031
+          name: singles
+        - id: 11032
+          name: doubles
+        - id: 11033
+          name: triples
+        - id: 12146
+          name: walks
+    - id: 1031
+      name: pitcher-props
+      subcategories:
+        - id: 15221
+          name: strikeouts-thrown
+        - id: 9883
+          name: outs-recorded
+        - id: 9884
+          name: to-record-a-win
+        - id: 9886
+          name: hits-allowed
+        - id: 15220
+          name: earned-runs-allowed
+        - id: 15219
+          name: walks-allowed
