@@ -1,4 +1,8 @@
 # dev_config.yaml
+
+aws:
+  s3_key: props/dev
+  
 duckdb:
   db_path: data/warehouse/dev_warehouse.duckdb
 
