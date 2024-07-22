@@ -2,7 +2,7 @@
 
 aws:
   region: us-east-2
-  bucket: mushroomsundays
+  s3_bucket: mushroomsundays
 
 prefect:
   flow_storage: data/prefect_flows/
@@ -69,3 +69,23 @@ draftkings:
           name: earned-runs-allowed
         - id: 15219
           name: walks-allowed
+- id: 88808
+  name: nfl-seasonlong
+  categories:
+    - id: 782
+      name: player-stats
+      subcategories:
+        - id: 7200
+          name: passing-yards
+        - id: 14770
+          name: passing-tds
+        - id: 7276
+          name: receiving-yards
+        - id: 7239
+          name: receiving-tds
+        - id: 7694
+          name: rushing-tds
+        - id: 7277
+          name: rushing-yards
+    - id: 492
+      name: game-lines

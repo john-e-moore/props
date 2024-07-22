@@ -14,6 +14,7 @@ def load_config(env):
 base_config = load_config('base')
 env_config = load_config('dev')
 
+
 # Tasks
 @task
 def extract_data():
