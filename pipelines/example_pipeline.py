@@ -75,17 +75,18 @@ def upload_processed_to_s3(df):
 @task
 def load_processed_to_duckdb(df):
     # Example data load logic
-    conn = duckdb.connect(database=f'{db_path}/{db_name}')
-    conn.execute("CREATE TABLE IF NOT EXISTS fact_example (id INTEGER, value FLOAT)")
-    conn.register('example_df', df)
-    conn.execute("INSERT INTO fact_example SELECT * FROM example_df")
-    conn.close()
+    with duckdb.connect(database=f'{db_path}/{db_name}') as con:
+        con.execute("CREATE TABLE IF NOT EXISTS fact_example (id INTEGER, value FLOAT)")
+        con.register('example_df', df)
+        con.execute("INSERT INTO fact_example SELECT * FROM example_df")
+    return None
 
 @task
 def query_sum(table, column_name):
     # NOTE: fetch methods: fetchdf(), fetchall(), fetchone(), fetchnumpy(), fetch_df_chunk()
-    conn = duckdb.connect(database=f'{db_path}/{db_name}')
-    sum = conn.execute(f"SELECT SUM({column_name}) AS sum_values FROM {table};").fetchone()
+    with duckdb.connect(database=f'{db_path}/{db_name}') as con:
+        con = duckdb.connect(database=f'{db_path}/{db_name}')
+        sum = con.execute(f"SELECT SUM({column_name}) AS sum_values FROM {table};").fetchone()
     return sum
 
 ################################################################################
