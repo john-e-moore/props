@@ -1,21 +1,39 @@
-from prefect import Flow, task
+# Standard
+import os
+# External
+import yaml
 import duckdb
 import pandas as pd
+from prefect import flow, task
+# Internal
 from utils.s3_utils import S3Utility
-from jobs.extract.draftkings.get_dk_mlb_props import get_dk_mlb_props
 
+################################################################################
 # Configuration
-import yaml
-
+################################################################################
 def load_config(env):
     with open(f'configs/{env}_config.yaml', 'r') as file:
         return yaml.safe_load(file)
 
-base_config = load_config('base')
-env_config = load_config('dev')
+environment = os.getenv('PROPS_ENVIRONMENT')
+#base_config = load_config('base')
+environment_config = load_config(environment)
 
+# S3
+s3_bucket = environment_config['aws']['s3_bucket']
+s3_key = environment_config['aws']['s3_key']
 
+# DuckDB
+database_path = environment_config['duckdb']['db_path']
+
+# Prefect flow
+retries = environment_config['prefect']['retries']
+retry_delay_seconds = environment_config['prefect']['retry_delay_seconds']
+log_prints = environment_config['prefect']['log_prints']
+
+################################################################################
 # Tasks
+################################################################################
 @task
 def extract_data():
     # Example data extraction logic
@@ -27,8 +45,15 @@ def extract_data():
     return df
 
 @task
-def upload_raw_to_s3():
-    pass
+def upload_raw_to_s3(df):
+    print(f"Raw data preview:\n{df.head()}")
+    s3 = S3Utility()
+    s3.upload_obj_s3(
+        bucket=s3_bucket,
+        key=f'{s3_key}/raw/example_data.json',
+        obj=df.to_json()
+    )
+    return None
 
 @task
 def process_raw_data(df):
@@ -37,22 +62,64 @@ def process_raw_data(df):
     return df    
 
 @task
-def upload_processed_to_s3():
-    pass
+def upload_processed_to_s3(df):
+    s3 = S3Utility()
+    s3.upload_obj_s3(
+        bucket=s3_bucket,
+        key=f'{s3_key}/processed/example_data.json',
+        obj=df.to_json()
+    )
+    return None
 
 @task
 def load_processed_to_duckdb(df):
     # Example data load logic
-    conn = duckdb.connect(env_config['duckdb']['db_path'])
-    conn.execute("CREATE TABLE IF NOT EXISTS fantasy_output (id INTEGER, value FLOAT)")
-    conn.execute("INSERT INTO fantasy_output SELECT * FROM df")
+    conn = duckdb.connect(database=database_path)
+    conn.execute("CREATE TABLE IF NOT EXISTS fact_example (id INTEGER, value FLOAT)")
+    conn.register('example_df', df)
+    conn.execute("INSERT INTO fact_example SELECT * FROM example_df")
+    conn.close()
 
-# Flow definition
-with Flow("Example Pipeline") as flow:
-    data = extract_data()
-    transformed_data = process_raw_data(data)
-    load_processed_to_duckdb(transformed_data)
+@task
+def query_sum(table, column_name):
+    # NOTE: fetch methods: fetchdf(), fetchall(), fetchone(), fetchnumpy(), fetch_df_chunk()
+    conn = duckdb.connect(database=database_path)
+    sum = conn.execute(f"SELECT SUM({column_name}) AS sum_values FROM {table};").fetchone()
+    return sum
+
+################################################################################
+# Flow
+################################################################################
+@flow
+def example_flow(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_delay_seconds):
+    """
+    Generates example data, processes it, and loads it to duckdb. Stages intermediate results in S3.
+    """
+    # "Extract" raw data
+    df_raw = extract_data()
+
+    # Stage raw in S3
+    upload_raw_to_s3(df_raw)
+
+    # Process data
+    df_processed = process_raw_data(df_raw)
+
+    # Stage processed in S3
+    upload_processed_to_s3(df_processed)
+
+    # Load processed to duckdb
+    load_processed_to_duckdb(df_processed)
+
+    # Calculate and print sum of new values
+    sum = query_sum('fact_example', 'value')
+    print(f"Sum of newly calculated values: {sum}")
 
 # Running the flow
 if __name__ == "__main__":
-    flow.run()
+    example_flow.serve(
+        name='example-flow',
+        cron='* * * * *',
+        tags=['example'],
+        # default description is flow's docstring
+        version='0.1',
+    )

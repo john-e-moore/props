@@ -1,4 +1,6 @@
 *.duckdb
 venv/
 configs/
+prefect_tutorial/*
 pat.txt
+*__pycache__*

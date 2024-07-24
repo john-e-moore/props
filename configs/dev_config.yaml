@@ -1,6 +1,16 @@
 # dev_config.yaml
 
+prefect:
+  log_level: DEBUG
+  retries: 2
+  retry_delay_seconds: 30
+  log_prints: true
+  agent:
+    type: cloud
+
 aws:
+  region: us-east-2
+  s3_bucket: mushroomsundays
   s3_key: props/dev
   
 duckdb:
@@ -8,7 +18,3 @@ duckdb:
 
 logging:
   log_level: DEBUG
-
-prefect:
-  agent:
-    type: local

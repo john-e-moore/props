@@ -1,14 +1,20 @@
 # prod_config.yaml
 
+prefect:
+  log_level: INFO
+  retries: 2
+  retry_delay_seconds: 30
+  log_prints: true
+  agent:
+    type: cloud
+
 aws:
-  s3_key: props/dev
+  region: us-east-2
+  s3_bucket: mushroomsundays
+  s3_key: props/prod
   
 duckdb:
   db_path: data/warehouse/prod_warehouse.duckdb
 
 logging:
   log_level: INFO
-
-prefect:
-  agent:
-    type: cloud
