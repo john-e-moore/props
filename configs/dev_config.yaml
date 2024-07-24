@@ -14,7 +14,9 @@ aws:
   s3_key: props/dev
   
 duckdb:
-  db_path: data/warehouse/dev_warehouse.duckdb
+  #db_path: data/warehouse/dev_warehouse.duckdb
+  db_name: dev_warehouse.duckdb
+  db_path: /mnt/c/Users/John/Documents/Personal/props
 
 logging:
   log_level: DEBUG

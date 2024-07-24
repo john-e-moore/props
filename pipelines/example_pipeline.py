@@ -24,7 +24,8 @@ s3_bucket = environment_config['aws']['s3_bucket']
 s3_key = environment_config['aws']['s3_key']
 
 # DuckDB
-database_path = environment_config['duckdb']['db_path']
+db_path = environment_config['duckdb']['db_path']
+db_name = environment_config['duckdb']['db_name']
 
 # Prefect flow
 retries = environment_config['prefect']['retries']
@@ -74,7 +75,7 @@ def upload_processed_to_s3(df):
 @task
 def load_processed_to_duckdb(df):
     # Example data load logic
-    conn = duckdb.connect(database=database_path)
+    conn = duckdb.connect(database=f'{db_path}/{db_name}')
     conn.execute("CREATE TABLE IF NOT EXISTS fact_example (id INTEGER, value FLOAT)")
     conn.register('example_df', df)
     conn.execute("INSERT INTO fact_example SELECT * FROM example_df")
@@ -83,7 +84,7 @@ def load_processed_to_duckdb(df):
 @task
 def query_sum(table, column_name):
     # NOTE: fetch methods: fetchdf(), fetchall(), fetchone(), fetchnumpy(), fetch_df_chunk()
-    conn = duckdb.connect(database=database_path)
+    conn = duckdb.connect(database=f'{db_path}/{db_name}')
     sum = conn.execute(f"SELECT SUM({column_name}) AS sum_values FROM {table};").fetchone()
     return sum
 
@@ -95,6 +96,8 @@ def example_flow(log_prints=log_prints, retries=retries, retry_delay_seconds=ret
     """
     Generates example data, processes it, and loads it to duckdb. Stages intermediate results in S3.
     """
+    print(f"duckdb location: {db_path}/{db_name}")
+
     # "Extract" raw data
     df_raw = extract_data()
 
