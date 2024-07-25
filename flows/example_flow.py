@@ -54,7 +54,7 @@ def upload_raw_to_s3(df):
         key=f'{s3_key}/raw/example_data.json',
         obj=df.to_json()
     )
-    return None
+    return "Data successfully uploaded to S3."
 
 @task
 def process_raw_data(df):
@@ -70,7 +70,7 @@ def upload_processed_to_s3(df):
         key=f'{s3_key}/processed/example_data.json',
         obj=df.to_json()
     )
-    return None
+    return "Data successfully uploaded to S3."
 
 @task
 def load_processed_to_duckdb(df):
@@ -79,7 +79,7 @@ def load_processed_to_duckdb(df):
         con.execute("CREATE TABLE IF NOT EXISTS fact_example (id INTEGER, value FLOAT)")
         con.register('example_df', df)
         con.execute("INSERT INTO fact_example SELECT * FROM example_df")
-    return None
+    return "Data successfully loaded to duckdb."
 
 @task
 def query_sum(table, column_name):
@@ -108,11 +108,15 @@ def example_flow(log_prints=log_prints, retries=retries, retry_delay_seconds=ret
     # Process data
     df_processed = process_raw_data(df_raw)
 
-    # Stage processed in S3
-    upload_processed_to_s3(df_processed)
+    # Stage processed in S3 (async)
+    future1 = upload_processed_to_s3.submit(df_processed)
 
-    # Load processed to duckdb
-    load_processed_to_duckdb(df_processed)
+    # Load processed to duckdb (async)
+    future2 = load_processed_to_duckdb.submit(df_processed)
+
+    # Get async results
+    future1_result = future1.result()
+    future2_result = future2.result()
 
     # Calculate and print sum of new values
     sum = query_sum('fact_example', 'value')
