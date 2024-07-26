@@ -1,88 +1,96 @@
-import re
 import boto3
-from typing import Any
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 from datetime import datetime
-from botocore.exceptions import NoCredentialsError, ClientError, PartialCredentialsError
+import hashlib
+from typing import Optional, Union
+from utils import generate_timestamp, compute_md5_hash
 
-class S3Utility:
-    @staticmethod
-    def get_latest_file_key(bucket: str, prefix: str) -> str:
+class S3Handler:
+    def __init__(self, bucket_name: str, aws_access_key_id: Optional[str] = None, aws_secret_access_key: Optional[str] = None, region_name: Optional[str] = None):
+        self.bucket_name = bucket_name
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=region_name
+        )
+
+    def upload_file(self, file_name: str, object_name: Optional[str] = None, raise_exception: bool = False) -> None:
         """
-        Retrieves the most recent file (based on Last Modified date) from an S3 bucket for a given prefix.
+        Uploads a local file to S3 and appends a timestamp to the object name.
         """
-        s3_client = boto3.client('s3')
         try:
-            response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-            files = response.get('Contents', [])
-        except ClientError as e:
-            raise Exception(f"Failed to list files in S3: {e}")
+            if object_name is None:
+                object_name = file_name
+            timestamp = generate_timestamp()
+            object_name_with_timestamp = f"{object_name}_{timestamp}"
+            self.s3_client.upload_file(file_name, self.bucket_name, object_name_with_timestamp)
+            print(f"File {file_name} uploaded to {object_name_with_timestamp}.")
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            print(f"Failed to upload {file_name}: {e}")
+            if raise_exception:
+                raise
 
-        if not files:
-            raise Exception("No files found under the specified bucket and prefix.")
-
-        latest_file = max(files, key=lambda x: x['LastModified'])
-        return latest_file['Key']
-
-    @staticmethod
-    def download_etag(bucket: str, key: str) -> str:
-        s3_client = boto3.client('s3')
+    def upload_object(self, obj: bytes, object_name: str, raise_exception: bool = False) -> None:
+        """
+        Uploads an in-memory object to S3 and appends a timestamp to the object name.
+        """
         try:
-            s3_object = s3_client.head_object(Bucket=bucket, Key=key)
-            s3_etag = s3_object['ETag'].strip('"')  # Remove double quotes from ETag
-            return s3_etag
-        except s3_client.exceptions.NoSuchKey:
-            print("The object does not exist in S3.")
+            timestamp = generate_timestamp()
+            object_name_with_timestamp = f"{object_name}_{timestamp}"
+            self.s3_client.put_object(Bucket=self.bucket_name, Key=object_name_with_timestamp, Body=obj)
+            print(f"Object uploaded to {object_name_with_timestamp}.")
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            print(f"Failed to upload object: {e}")
+            if raise_exception:
+                raise
+
+    def download_file(self, object_name: str, save_to_local: Optional[str] = None, raise_exception: bool = False) -> Optional[bytes]:
+        """
+        Downloads a file from S3 to RAM and optionally saves it locally.
+        """
+        try:
+            response = self.s3_client.get_object(Bucket=self.bucket_name, Key=object_name)
+            data = response['Body'].read()
+            if save_to_local:
+                with open(save_to_local, 'wb') as file:
+                    file.write(data)
+                print(f"File {object_name} downloaded to {save_to_local}.")
+            return data
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            print(f"Failed to download {object_name}: {e}")
+            if raise_exception:
+                raise
             return None
+
+    def download_etag(self, object_name: str, raise_exception: bool = False) -> Optional[str]:
+        """
+        Downloads a file's ETag from S3.
+        """
+        try:
+            response = self.s3_client.head_object(Bucket=self.bucket_name, Key=object_name)
+            etag = response['ETag']
+            print(f"ETag for {object_name} is {etag}.")
+            return etag
+        except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
+            print(f"Failed to get ETag for {object_name}: {e}")
+            if raise_exception:
+                raise
+            return None
+
+    def has_file_changed(self, object_name: str, obj: bytes, raise_exception: bool = False) -> bool:
+        """
+        Compares the S3 ETag to the in-memory object's MD5 hash to determine if the file has changed.
+        """
+        try:
+            etag = self.download_etag(object_name, raise_exception=raise_exception)
+            if etag:
+                md5_hash = compute_md5_hash(obj)
+                etag_cleaned = etag.strip('"')  # Remove quotes from etag
+                return etag_cleaned != md5_hash
+            return False
         except Exception as e:
-            print(f"An error occurred: {e}")
-            return None
-
-    @staticmethod
-    def upload_local_file_to_s3(local_file_path: str, bucket: str, key: str) -> None:
-        """
-        Uploads a file from the local file system to an S3 bucket.
-        """
-        s3_client = boto3.client('s3')
-        try:
-            response = s3_client.upload_file(local_file_path, bucket, key)
-            print(f"Successfully uploaded:\n{response}")
-        except (ClientError, NoCredentialsError) as e:
-            raise Exception(f"Failed to upload file to S3: {e}")
-
-    @staticmethod
-    def download_s3_file_to_local(local_file_path: str, bucket: str, key: str) -> None:
-        """
-        Downloads a file from an S3 bucket to the local file system.
-        """
-        s3_client = boto3.client('s3')
-        try:
-            s3_client.download_file(bucket, key, local_file_path)
-        except ClientError as e:
-            raise Exception(f"Failed to download file from S3: {e}")
-
-    @staticmethod
-    def upload_obj_s3(bucket: str, key: str, obj: str) -> None:
-        """
-        Uploads an object to S3.
-        """
-        s3_client = boto3.client('s3')
-        try:
-            response = s3_client.put_object(Bucket=bucket, Key=key, Body=obj)
-            print(f"Successfully uploaded:\n{response}")
-        except (ClientError, NoCredentialsError) as e:
-            raise Exception(f"Failed to upload object to S3: {e}")
-
-    @staticmethod
-    def replace_timestamp_in_filename(filename: str) -> str:
-        """
-        Replaces an old timestamp in the file name with the current timestamp.
-        The timestamp format is assumed to be YYYYMMDD.
-
-        :param filename: The original file name with the old timestamp.
-        :return: The new file name with the current timestamp.
-        """
-        current_timestamp = datetime.now().strftime("%Y%m%d")
-        pattern = r'(\d{8})(?=\.\w+$)'  # Looks for 8 digits before the file extension
-        # Replace the old timestamp with the current timestamp
-        new_filename = re.sub(pattern, current_timestamp, filename)
-        return new_filename
+            print(f"Error in comparing file hash: {e}")
+            if raise_exception:
+                raise
+            return False
