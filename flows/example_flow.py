@@ -6,15 +6,12 @@ import duckdb
 import pandas as pd
 from prefect import flow, task
 # Internal
-from utils.s3_utils import S3Utility
+from handlers.s3_handler import S3Handler
+from utils import load_config
 
 ################################################################################
 # Configuration
 ################################################################################
-def load_config(env):
-    with open(f'configs/{env}_config.yaml', 'r') as file:
-        return yaml.safe_load(file)
-
 environment = os.getenv('PROPS_ENVIRONMENT')
 #base_config = load_config('base')
 environment_config = load_config(environment)

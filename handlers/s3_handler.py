@@ -2,7 +2,7 @@ import re
 import boto3
 from typing import Any
 from datetime import datetime
-from botocore.exceptions import NoCredentialsError, ClientError
+from botocore.exceptions import NoCredentialsError, ClientError, PartialCredentialsError
 
 class S3Utility:
     @staticmethod
@@ -85,3 +85,4 @@ class S3Utility:
         pattern = r'(\d{8})(?=\.\w+$)'  # Looks for 8 digits before the file extension
         # Replace the old timestamp with the current timestamp
         new_filename = re.sub(pattern, current_timestamp, filename)
+        return new_filename
