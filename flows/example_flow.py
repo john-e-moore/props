@@ -45,7 +45,7 @@ def extract_data():
 @task
 def upload_raw_to_s3(df):
     print(f"Raw data preview:\n{df.head()}")
-    s3 = S3Utility()
+    s3 = S3Handler()
     s3.upload_obj_s3(
         bucket=s3_bucket,
         key=f'{s3_key}/raw/example_data.json',
@@ -61,7 +61,7 @@ def process_raw_data(df):
 
 @task
 def upload_processed_to_s3(df):
-    s3 = S3Utility()
+    s3 = S3Handler()
     s3.upload_obj_s3(
         bucket=s3_bucket,
         key=f'{s3_key}/processed/example_data.json',
@@ -72,18 +72,18 @@ def upload_processed_to_s3(df):
 @task
 def load_processed_to_duckdb(df):
     # Example data load logic
-    with duckdb.connect(database=f'{db_path}/{db_name}') as con:
-        con.execute("CREATE TABLE IF NOT EXISTS fact_example (id INTEGER, value FLOAT)")
-        con.register('example_df', df)
-        con.execute("INSERT INTO fact_example SELECT * FROM example_df")
+    with duckdb.connect(database=f'{db_path}/{db_name}') as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS fact_example (id INTEGER, value FLOAT)")
+        conn.register('example_df', df)
+        conn.execute("INSERT INTO fact_example SELECT * FROM example_df")
     return "Data successfully loaded to duckdb."
 
 @task
 def query_sum(table, column_name):
     # NOTE: fetch methods: fetchdf(), fetchall(), fetchone(), fetchnumpy(), fetch_df_chunk()
-    with duckdb.connect(database=f'{db_path}/{db_name}') as con:
-        con = duckdb.connect(database=f'{db_path}/{db_name}')
-        sum = con.execute(f"SELECT SUM({column_name}) AS sum_values FROM {table};").fetchone()
+    with duckdb.connect(database=f'{db_path}/{db_name}') as conn:
+        conn = duckdb.connect(database=f'{db_path}/{db_name}')
+        sum = conn.execute(f"SELECT SUM({column_name}) AS sum_values FROM {table};").fetchone()
     return sum
 
 ################################################################################
