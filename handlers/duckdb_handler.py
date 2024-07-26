@@ -1,18 +1,25 @@
+import os
 import duckdb
 import pandas as pd
 from typing import List
+from utils.utils import load_config
 from handlers.s3_handler import S3Handler
 
 class DuckDBHandler:
-    def __init__(self, db_path: str, s3_handler):
+    def __init__(self, db_path: str):
         """
         Initializes the DuckDBHandler with the path to the DuckDB database file and an instance of the S3Handler class.
         
         :param db_path: The file path for the DuckDB database.
         :param s3_handler: An instance of the S3Handler class for handling operations with S3.
         """
+        # S3Handler needs a bucket
+        environment = os.getenv('PROPS_ENVIRONMENT')
+        environment_config = load_config(environment)
+        s3_bucket = environment_config['aws']['s3_bucket']
+
         self.db_path = db_path
-        self.s3_handler = S3Handler()
+        self.s3_handler = S3Handler(s3_bucket)
         self.conn = duckdb.connect(database=self.db_path, read_only=False)
         print(f"DuckDBHandler initialized with database at {db_path}")
 
@@ -32,7 +39,6 @@ class DuckDBHandler:
         :param backup_file_name: The name of the file in the S3 bucket.
         """
         self.s3_handler.download_file(self.db_path, backup_file_name)
-        self.conn = duckdb.connect(database=self.db_path, read_only=False)
         print(f"Database restored from S3 from {backup_file_name}")
 
     def insert_data(self, table_name: str, data: pd.DataFrame) -> None:
@@ -67,7 +73,9 @@ class DuckDBHandler:
 
         upsert_query = f"""
         BEGIN TRANSACTION;
-        DELETE FROM {table_name} USING {temp_table} WHERE {key_condition};
+        DELETE FROM {table_name} WHERE EXISTS (
+            SELECT 1 FROM {temp_table} WHERE {key_condition}
+        );
         INSERT INTO {table_name} ({insert_columns}) SELECT {insert_values} FROM {temp_table};
         DROP TABLE {temp_table};
         COMMIT;
