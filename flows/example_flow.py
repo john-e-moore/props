@@ -7,7 +7,7 @@ import pandas as pd
 from prefect import flow, task
 # Internal
 from handlers.s3_handler import S3Handler
-from utils import load_config
+from utils.utils import load_config
 
 ################################################################################
 # Configuration

@@ -1,12 +1,18 @@
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
-from datetime import datetime
-import hashlib
 from typing import Optional, Union
-from utils import generate_timestamp, compute_md5_hash
+from utils.utils import generate_timestamp, compute_md5_hash
 
 class S3Handler:
     def __init__(self, bucket_name: str, aws_access_key_id: Optional[str] = None, aws_secret_access_key: Optional[str] = None, region_name: Optional[str] = None):
+        """
+        Initializes the S3Handler with AWS credentials and the name of the bucket.
+
+        :param bucket_name: The name of the AWS S3 bucket.
+        :param aws_access_key_id: Optional AWS access key ID for authentication.
+        :param aws_secret_access_key: Optional AWS secret access key for authentication.
+        :param region_name: Optional AWS region where the bucket is hosted.
+        """
         self.bucket_name = bucket_name
         self.s3_client = boto3.client(
             's3',
@@ -17,13 +23,16 @@ class S3Handler:
 
     def upload_file(self, file_name: str, object_name: Optional[str] = None, raise_exception: bool = False) -> None:
         """
-        Uploads a local file to S3 and appends a timestamp to the object name.
+        Uploads a local file to S3 and appends a timestamp to the object name to ensure uniqueness.
+
+        :param file_name: Path to the local file to be uploaded.
+        :param object_name: The object name under which the file will be saved in the S3 bucket. If None, uses file_name.
+        :param raise_exception: If True, raises any exception that occurs, otherwise prints the error.
         """
+        if object_name is None:
+            object_name = file_name
+        object_name_with_timestamp = f"{object_name}_{generate_timestamp()}"
         try:
-            if object_name is None:
-                object_name = file_name
-            timestamp = generate_timestamp()
-            object_name_with_timestamp = f"{object_name}_{timestamp}"
             self.s3_client.upload_file(file_name, self.bucket_name, object_name_with_timestamp)
             print(f"File {file_name} uploaded to {object_name_with_timestamp}.")
         except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
@@ -33,11 +42,15 @@ class S3Handler:
 
     def upload_object(self, obj: bytes, object_name: str, raise_exception: bool = False) -> None:
         """
-        Uploads an in-memory object to S3 and appends a timestamp to the object name.
+        Uploads an in-memory object (like bytes) to S3, appending a timestamp to ensure uniqueness.
+
+        :param obj: The object (data) to be uploaded.
+        :param object_name: The name for the object in S3.
+        :param raise_exception: If True, raises any exception that occurs, otherwise prints the error.
         """
+        timestamp = generate_timestamp()
+        object_name_with_timestamp = f"{object_name}_{timestamp}"
         try:
-            timestamp = generate_timestamp()
-            object_name_with_timestamp = f"{object_name}_{timestamp}"
             self.s3_client.put_object(Bucket=self.bucket_name, Key=object_name_with_timestamp, Body=obj)
             print(f"Object uploaded to {object_name_with_timestamp}.")
         except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
@@ -48,6 +61,11 @@ class S3Handler:
     def download_file(self, object_name: str, save_to_local: Optional[str] = None, raise_exception: bool = False) -> Optional[bytes]:
         """
         Downloads a file from S3 to RAM and optionally saves it locally.
+
+        :param object_name: The S3 path of the file to download.
+        :param save_to_local: Local path to save the file. If None, the file is not saved.
+        :param raise_exception: If True, raises any exception that occurs, otherwise prints the error.
+        :return: The data as bytes if not saved locally, None if saved locally or if an error occurs.
         """
         try:
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=object_name)
@@ -65,7 +83,11 @@ class S3Handler:
 
     def download_etag(self, object_name: str, raise_exception: bool = False) -> Optional[str]:
         """
-        Downloads a file's ETag from S3.
+        Downloads a file's ETag from S3 to check the integrity and version of the file.
+
+        :param object_name: The S3 path of the file whose ETag is being retrieved.
+        :param raise_exception: If True, raises any exception that occurs, otherwise prints the error.
+        :return: The ETag as a string if successful, None otherwise.
         """
         try:
             response = self.s3_client.head_object(Bucket=self.bucket_name, Key=object_name)
@@ -81,6 +103,11 @@ class S3Handler:
     def has_file_changed(self, object_name: str, obj: bytes, raise_exception: bool = False) -> bool:
         """
         Compares the S3 ETag to the in-memory object's MD5 hash to determine if the file has changed.
+
+        :param object_name: The S3 path of the file to compare.
+        :param obj: The object data in bytes.
+        :param raise_exception: If True, raises any exception that occurs, otherwise prints the error.
+        :return: True if the file has changed (ETag does not match MD5 hash), False otherwise.
         """
         try:
             etag = self.download_etag(object_name, raise_exception=raise_exception)

@@ -19,6 +19,9 @@ There are three places to store task functions:
 - Transformations are stored in 'transformations/db/' or 'transformations/ram/' based on whether the transformation is performed in ram or in duckdb. Scientific stuff will usually use a Python library in-memory and more basic transformations will typically be in-database SQL.
 - Other reused functions go in 'utils/'
 
+## Tests
+Run from base directory: `python -m unittest discover -s tests`
+
 ## Note
 My flow was failing with 'permission denied' when the .duckdb file was connected to DBeaver. I guess DBeaver places a lock on it.
 
