@@ -9,12 +9,13 @@ prefect:
     type: cloud
 
 aws:
-  region: us-east-2
-  s3_bucket: mushroomsundays
-  s3_key: props/prod
+  region: aws-region
+  s3_bucket: s3-bucket
+  s3_key: s3-key
   
 duckdb:
-  db_path: data/warehouse/prod_warehouse.duckdb
+  db_name: your-db-filename
+  db_path: path-to-your-db
 
 logging:
   log_level: INFO

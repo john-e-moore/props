@@ -1,0 +1,21 @@
+# dev_config.yaml
+
+prefect:
+  log_level: DEBUG
+  retries: 2
+  retry_delay_seconds: 30
+  log_prints: true
+  agent:
+    type: cloud
+
+aws:
+  region: aws-region
+  s3_bucket: s3-bucket
+  s3_key: s3-key
+  
+duckdb:
+  db_name: your-db-filename
+  db_path: path-to-your-db
+
+logging:
+  log_level: DEBUG
