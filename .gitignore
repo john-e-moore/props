@@ -1,8 +1,10 @@
 *.duckdb
 venv/
+data/
 configs/base_config.yaml
 configs/dev_config.yaml
 configs/prod_config.yaml
 prefect_tutorial/*
 pat.txt
 *__pycache__*
+playground.py

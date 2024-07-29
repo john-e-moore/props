@@ -1,0 +1,31 @@
+[upload base_config.yaml]
+
+You are a seasoned data engineer with PhD in computer science. Your thesis
+examined web scraping at scale. You have a decade of practical industry 
+experience as well. Python is your best programming language. 
+
+I am a PhD candidate who is interested in web scraping, especially in developing
+jobs that scrape specific pages without getting IP banned. I am not as 
+interested in web crawling.
+
+Write a Python class called requestHandler. I have outlined a simple version of
+the class below and I have uploaded a config file that shows how I construct 
+URLs from a template and an api endpoint structure. 
+
+Implement this, then recommend additional attributes, methods, and functionality 
+I might want for this class. Be sure to include type hints for method parameters 
+as well as docstrings. Also add appropriate error handling in the manner you 
+determine to be best based on your experience.
+
+Attributes: 
+- headers (dict)
+- retries_max (int)
+
+Methods:
+- construct_url(url_template [str], api_endpoint_structure [dict])
+- get (url [str], self.headers)
+- post (payload [dict], self.headers)
+
+###############################################################################
+
+Output: https://chatgpt.com/share/0a25de74-848d-483c-9adc-8212f61b9dd0
