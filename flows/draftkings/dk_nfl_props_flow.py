@@ -65,13 +65,22 @@ def upload_parsed_data_s3():
 @task
 def load_parsed_data_duckdb():
     pass
-
+#######################################
+# Develop the last two transformations after the first 5 tasks are deployed;
+# no reason not to start filling the database
 @task
 def group_data_by_player():
+    # can do this in sql: transformations/db
+    pass
+
+@task
+def compute_averages_from_vegas_odds():
+    # this should use stuff from transformations/ram
     pass
 
 @task
 def compute_fpts_columns():
+    # transformations/db
     pass
 
 @task
