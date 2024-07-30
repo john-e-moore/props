@@ -4,7 +4,16 @@ import random
 from typing import Dict, Any, List, Optional
 
 class RequestHandler:
-    def __init__(self, headers: dict, sleep_secs_min: int, sleep_secs_max: int, retries_max: int, proxies: Optional[List[str]] = None, max_requests_per_proxy: int = 10):
+    def __init__(
+            self, 
+            headers: dict, 
+            sleep_secs_min: int, 
+            sleep_secs_max: int, 
+            retries_max: int, 
+            timeout: int = 10, 
+            proxies: Optional[List[str]] = None, 
+            max_requests_per_proxy: int = 10
+        ):
         """
         Initializes the RequestHandler with optional proxy rotation.
         
@@ -19,6 +28,7 @@ class RequestHandler:
         self.sleep_secs_min = sleep_secs_min
         self.sleep_secs_max = sleep_secs_max
         self.retries_max = retries_max
+        self.timeout = timeout
         self.request_count = 0
         self.session = requests.Session()
         self.session.headers.update(headers)
@@ -80,10 +90,9 @@ class RequestHandler:
         if self.proxies:
             params['proxies'] = self.current_proxy
         
-        print("**********REQUEST FORMAT**********")
         print(f"Method: {method.upper()}")
         print(f"URL: {url}")
-        print(f"Params: {params}")
+        #print(f"Params: {params}")
         
         # Attempt request
         attempt = 0

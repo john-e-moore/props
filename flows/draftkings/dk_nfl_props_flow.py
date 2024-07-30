@@ -47,14 +47,36 @@ log_prints = environment_config['prefect']['log_prints']
 # Tasks
 ################################################################################
 @task
-def scrape_draftkings_player_props():
-    # Example data extraction logic
-    data = {
-        "id": [1, 2, 3],
-        "value": [100, 200, 300]
-    }
-    df = pd.DataFrame(data)
-    return df
+def web_request():
+    pass
+
+@task
+def upload_raw_data_s3():
+    pass
+
+@task
+def parse_and_flatten_raw_data():
+    pass
+
+@task
+def upload_parsed_data_s3():
+    pass
+
+@task
+def load_parsed_data_duckdb():
+    pass
+
+@task
+def group_data_by_player():
+    pass
+
+@task
+def compute_fpts_columns():
+    pass
+
+@task
+def upload_final_dataset_s3():
+    pass
 
 ################################################################################
 # Flow
@@ -109,8 +131,6 @@ if __name__ == "__main__":
                         file_extension=file_extension_raw
                     )
 
-                    # TODO: remove after development
-                    sys.exit()
             else:
                 print("No subcategories available.")
     print("Done.")
