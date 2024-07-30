@@ -21,7 +21,7 @@ class S3Handler:
             region_name=region_name
         )
 
-    def upload_file(self, file_name: str, object_name: Optional[str] = None, raise_exception: bool = False) -> None:
+    def upload_file(self, file_name: str, base_key: str, file_extension: str, object_name: Optional[str] = None, raise_exception: bool = False) -> None:
         """
         Uploads a local file to S3 and appends a timestamp to the object name to ensure uniqueness.
 
@@ -31,16 +31,17 @@ class S3Handler:
         """
         if object_name is None:
             object_name = file_name
-        object_name_with_timestamp = f"{object_name}_{generate_timestamp()}"
+        timestamp = generate_timestamp()
+        full_key = f"{base_key}/{object_name}_{timestamp}.{file_extension}"
         try:
-            self.s3_client.upload_file(file_name, self.bucket_name, object_name_with_timestamp)
-            print(f"File {file_name} uploaded to {object_name_with_timestamp}.")
+            self.s3_client.upload_file(file_name, self.bucket_name, full_key)
+            print(f"File {file_name} uploaded to {full_key}.")
         except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
             print(f"Failed to upload {file_name}: {e}")
             if raise_exception:
                 raise
 
-    def upload_object(self, obj: bytes, object_name: str, raise_exception: bool = False) -> None:
+    def upload_object(self, obj: bytes, object_name: str, base_key: str, file_extension: str, raise_exception: bool = False) -> None:
         """
         Uploads an in-memory object (like bytes) to S3, appending a timestamp to ensure uniqueness.
 
@@ -49,10 +50,10 @@ class S3Handler:
         :param raise_exception: If True, raises any exception that occurs, otherwise prints the error.
         """
         timestamp = generate_timestamp()
-        object_name_with_timestamp = f"{object_name}_{timestamp}"
+        full_key = f"{base_key}/{object_name}_{timestamp}.{file_extension}"
         try:
-            self.s3_client.put_object(Bucket=self.bucket_name, Key=object_name_with_timestamp, Body=obj)
-            print(f"Object uploaded to {object_name_with_timestamp}.")
+            self.s3_client.put_object(Bucket=self.bucket_name, Key=full_key, Body=obj)
+            print(f"Object uploaded to {full_key}.")
         except (NoCredentialsError, PartialCredentialsError, ClientError) as e:
             print(f"Failed to upload object: {e}")
             if raise_exception:
