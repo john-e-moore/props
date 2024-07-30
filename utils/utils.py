@@ -1,6 +1,7 @@
 import yaml
 import hashlib
 from datetime import datetime
+from typing import Dict, Any, List, Optional
 
 ################################################################################
 # Configuration
@@ -11,6 +12,16 @@ def load_config(env):
     """
     with open(f'configs/{env}_config.yaml', 'r') as file:
         return yaml.safe_load(file)
+    
+def get_event_group_by_name(event_groups: List[dict], name: str) -> dict:
+    """
+    Parses a list of url parameters to get only the eventgroup (sport) we need.
+
+    :return: A dictionary containing IDs and names of categories and subcategories
+    within an eventgroup.
+    """
+    return next((event_group for event_group in event_groups if event_group['name'] == name), None)
+
     
 ################################################################################
 # Cryptography

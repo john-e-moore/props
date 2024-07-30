@@ -48,7 +48,7 @@ def upload_raw_to_s3(df):
     s3 = S3Handler()
     s3.upload_obj_s3(
         bucket=s3_bucket,
-        key=f'{s3_key}/raw/example_data.json',
+        key=f'{s3_key}/example/raw/example_data.json',
         obj=df.to_json()
     )
     return "Data successfully uploaded to S3."
@@ -64,7 +64,7 @@ def upload_processed_to_s3(df):
     s3 = S3Handler()
     s3.upload_obj_s3(
         bucket=s3_bucket,
-        key=f'{s3_key}/processed/example_data.json',
+        key=f'{s3_key}/example/processed/example_data.json',
         obj=df.to_json()
     )
     return "Data successfully uploaded to S3."
