@@ -1,10 +1,6 @@
-0. POC duckdb and prefect.
-1. Architecture diagram using Visio
-2. See if scraping Unabated is feasible
-3. Determine repository structure
-3. Data model for duckdb
-4. Data model for S3
-5. Development
-  a. Config duckdb, s3, 
-  a. Try reading and writing data to and from S3 with duckdb 
-  b. Make an S3Handler class
+xxx POC duckdb and prefect.
+xxx Determine repository structure
+- Data models for duckdb and S3
+- Develop first flow
+- Architecture diagram using Visio
+- Check out Unabated
