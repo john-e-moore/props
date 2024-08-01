@@ -6,7 +6,6 @@ from typing import Dict, Any, List, Optional
 class RequestHandler:
     def __init__(
             self, 
-            headers: dict, 
             sleep_secs_min: int, 
             sleep_secs_max: int, 
             retries_max: int, 
@@ -24,14 +23,12 @@ class RequestHandler:
         :param proxies: Optional list of proxies for rotation.
         :param max_requests_per_proxy: Maximum number of requests before rotating proxies.
         """
-        self.headers = headers
         self.sleep_secs_min = sleep_secs_min
         self.sleep_secs_max = sleep_secs_max
         self.retries_max = retries_max
         self.timeout = timeout
         self.request_count = 0
         self.session = requests.Session()
-        self.session.headers.update(headers)
         self.proxies = proxies
         self.max_requests_per_proxy = max_requests_per_proxy
         
@@ -75,7 +72,7 @@ class RequestHandler:
         """
         return url_template.format(**kwargs)
 
-    def request_with_retry(self, method: str, url: str, **kwargs) -> requests.Response:
+    def request_with_retry(self, method: str, url: str, headers=None) -> requests.Response:
         """
         Makes HTTP requests with retries, exponential backoff, and proxy rotation.
         
@@ -83,16 +80,15 @@ class RequestHandler:
         :param url: URL to which the request is sent.
         :param kwargs: Additional arguments to pass to requests methods.
         :return: Response object from requests.
+
+        from session.requests doc: :param proxies: (optional) Dictionary mapping protocol or protocol and
+            hostname to the URL of the proxy.
         """
-        # Request parameters
-        params = {}
-        params['headers'] = self.headers
-        if self.proxies:
-            params['proxies'] = self.current_proxy
-        
+
         print(f"Method: {method.upper()}")
         print(f"URL: {url}")
-        #print(f"Params: {params}")
+        print(f"Headers: {headers}")
+        print(f"Proxies: {self.proxies}")
         
         # Attempt request
         attempt = 0
@@ -101,7 +97,8 @@ class RequestHandler:
                 response = self.session.request(
                     method=method.upper(), 
                     url=url, 
-                    **params
+                    headers=headers,
+                    proxies=self.proxies
                 )
                 print(f"Status code: {response.status_code}")
                 response.raise_for_status()
@@ -117,23 +114,31 @@ class RequestHandler:
         print(f"All retry attempts failed after {self.retries_max} attempts.")
         return None
 
-    def get(self, url: str) -> requests.Response:
+    def get(self, url: str, headers=None) -> requests.Response:
         """
-        Sends a GET request to the specified URL with optional proxy rotation.
+        Updates session headers for the request, then sends a GET request to 
+        the specified URL with optional proxy rotation.
         
         :param url: URL to which the GET request is sent.
+        :param kwargs: Additional arguments to pass to requests methods.
         :return: Response object from requests.
         """
+        if headers:
+            self.session.headers.update(headers)
         
-        return self.request_with_retry('get', url)
+        return self.request_with_retry('get', url, headers)
 
-    def post(self, url: str, payload: Dict[str, Any]) -> requests.Response:
+    def post(self, url: str, payload: Dict[str, Any], headers=None) -> requests.Response:
         """
-        Sends a POST request with a payload to the specified URL with retries and proxy rotation.
+        Updates session headers for the request, then sends a POST request 
+        with a payload to the specified URL with retries and proxy rotation.
         
         :param url: URL to which the POST request is sent.
         :param payload: A dictionary of data to send in the body of the POST request.
+        :param kwargs: Additional arguments to pass to requests methods.
         :return: Response object from requests.
         """
+        if headers:
+            self.session.headers.update(headers)
 
-        return self.request_with_retry('post', url, json=payload)
+        return self.request_with_retry('post', url, headers, json=payload)
