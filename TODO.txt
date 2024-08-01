@@ -1,6 +1,15 @@
 xxx POC duckdb and prefect.
 xxx Determine repository structure
-- Data models for duckdb and S3
 - Develop first flow
+- Data models for duckdb and S3
+- Deploy first flow
+- Display projections on pws
 - Architecture diagram using Visio
+- Update README
+- Solicit feedback (jacob, brian, chris, justin, alex)
+- Run historical data ingest scripts
+- Set up game-by-game projections using scikitlearn and historical data
+
+- LLC setup
+
 - Check out Unabated

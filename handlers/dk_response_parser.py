@@ -11,40 +11,38 @@ class DKResponseParser:
         """
         self.json_obj = json_obj
     
-    def flatten_all_items(flattened_items: List[dict], key: str = None) -> pd.DataFrame:
+    @staticmethod
+    def flatten_item(item: Any, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
         """
-        
-        """
-        pass
-    
-    def flatten_dict(self, exclude: Optional[Set[str]] = set()) -> Dict[str, Any]:
-        """
-        Recursively flattens the specified JSON object. Nested structures may include
+        Recursively flattens the specified item. Nested structures may include
         dictionaries, lists, or a list of dictionaries.
 
-        :param json_obj: Series to flatten. 
+        :param item: Dictionary or list containing dictionaries to flatten.
         :param exclude: Fields to leave intact. Meant to be used for fields that can
         contain a list of arbitrary length, which would break normalization.
-        :return: Flattened dictionary.
+        :return: Flattened (single layer) dictionary.
         """
-        items = {}
-        for key, value in self.json_obj.items():
-            if key in exclude:
-                items[key] = value
-            elif isinstance(value, dict):
-                child_items = DKResponseParser.flatten_dict(value, exclude)
-                for child_key, child_value in child_items.items():
-                    new_key = f"{key}.{child_key}"
-                    items[new_key] = child_value
-            elif isinstance(value, list) and all(isinstance(i, dict) for i in value):
-                for index, item in enumerate(value):
-                    child_items = DKResponseParser.flatten_dict(item, exclude)
-                    for child_key, child_value in child_items.items():
-                        new_key = f"{key}[{index}].{child_key}"
-                        items[new_key] = child_value
+        if exclude is None:
+            exclude = set()
+        
+        def flatten(current_item: Any, key_prefix: str = '') -> Dict[str, Any]:
+            flat_dict = {}
+            if isinstance(current_item, dict):
+                for k, v in current_item.items():
+                    full_key = f"{key_prefix}.{k}" if key_prefix else k
+                    if k in exclude:
+                        flat_dict[full_key] = v
+                    else:
+                        flat_dict.update(flatten(v, full_key))
+            elif isinstance(current_item, list):
+                for index, elem in enumerate(current_item):
+                    full_key = f"{key_prefix}[{index}]"
+                    flat_dict.update(flatten(elem, full_key))
             else:
-                items[key] = value
-        return items
+                flat_dict[key_prefix] = current_item
+            return flat_dict
+        
+        return flatten(item)
     
     @staticmethod
     def find_nested_value(d: Dict[Any, Any], key: str, found=None) -> Any:
@@ -52,6 +50,8 @@ class DKResponseParser:
         Recursively searches through nested dictionary until locating the specified key,
         then extracts the value of that key. If the key appears multiple times at any level,
         an error is thrown.
+
+        Note: must pass 'd' instead of using self.response because of recursion.
 
         :params d: The dictionary to search.
         :params key: The key to locate.
@@ -84,18 +84,71 @@ class DKResponseParser:
             return None
     
     @staticmethod
-    def dict_to_dataframe(d: Dict[str, Any]) -> pd.DataFrame:
+    def flattened_events_to_dataframe(d: Dict[str, Any]) -> pd.DataFrame:
         """
         Converts a dictionary to a Pandas Dataframe.
 
         :param d: dictionary to convert
         :return: DataFrame
         """
-        try:
-            df = pd.DataFrame(d.items())
-        except Exception as e:
-            raise ValueError(f"Error converting dictionary to DataFrame: {e}")
-        return df
+        rows = {}
+
+        for key, value in d.items():
+            # Extract index and field name from the key
+            index = int(key.split('].')[0][1:])
+            field_name = key.split('].')[1]
+            
+            # Initialize the row if it hasn't been started yet
+            if index not in rows:
+                rows[index] = {}
+            
+            # Add data to the correct dictionary based on the index
+            rows[index][field_name] = value
+
+        rows_list = list(rows.values())
+
+        return pd.DataFrame(rows_list)
+    
+    @staticmethod
+    def flattened_offers_to_dataframe(d: Dict[str, Any]) -> pd.DataFrame:
+        """
+        Converts a dictionary to a Pandas Dataframe.
+
+        :param d: dictionary to convert
+        :return: DataFrame
+        """
+        # Initialize a dictionary to hold the processed rows
+        rows = {}
+
+        # Parse the flattened data
+        for key, value in d.items():
+            # Parsing the key to extract indices and the property name
+            # Example key format: "[0][1].label"
+            indices = key.split(']')
+            indices = [index.replace('[', '') for index in indices if index]  # Remove brackets
+            main_index = int(indices[0])  # The main index for the DataFrame row
+
+            # Sub-index and property extraction
+            if len(indices) > 1:
+                sub_index = int(indices[1])  # Secondary index if exists
+                property_name = indices[-1].split('.')[1]  # Split on '.' to extract the property name
+                combined_key = f"{sub_index}_{property_name}"
+            else:
+                property_name = indices[0].split('.')[1]
+                combined_key = property_name
+
+            # Initialize the row if it hasn't been started yet
+            if main_index not in rows:
+                rows[main_index] = {}
+
+            # Add data to the correct dictionary based on the main index
+            rows[main_index][combined_key] = value
+
+        # Convert the dictionary of rows into a list of dictionaries for DataFrame creation
+        rows_list = [rows[key] for key in sorted(rows.keys())]
+
+        # Create a DataFrame from the list of dictionaries
+        return pd.DataFrame(rows_list)
 
     @staticmethod
     def split_series(series: pd.Series, delimiter: str, new_colnames: List[str]) -> pd.DataFrame:
