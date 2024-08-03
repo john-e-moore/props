@@ -10,6 +10,12 @@ class DKResponseParser:
         :param response: Response returned from DraftKings API.
         """
         self.json_obj = json_obj
+
+    def parse_and_clean_game_lines():
+        pass
+
+    def parse_and_clean_player_props():
+        pass
     
     @staticmethod
     def flatten_item(item: Any, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
@@ -122,33 +128,84 @@ class DKResponseParser:
 
         # Parse the flattened data
         for key, value in d.items():
-            # Parsing the key to extract indices and the property name
-            # Example key format: "[0][1].label"
-            indices = key.split(']')
-            indices = [index.replace('[', '') for index in indices if index]  # Remove brackets
-            main_index = int(indices[0])  # The main index for the DataFrame row
-
-            # Sub-index and property extraction
-            if len(indices) > 1:
-                sub_index = int(indices[1])  # Secondary index if exists
-                property_name = indices[-1].split('.')[1]  # Split on '.' to extract the property name
-                combined_key = f"{sub_index}_{property_name}"
-            else:
-                property_name = indices[0].split('.')[1]
-                combined_key = property_name
-
+            # Correct parsing of the key to extract indices and property names
+            # Example key format: "[0][0].outcomes[0].label"
+            parts = key.replace(']', '').split('[')
+            main_index = int(parts[1])  # First index for DataFrame row
             # Initialize the row if it hasn't been started yet
             if main_index not in rows:
                 rows[main_index] = {}
 
-            # Add data to the correct dictionary based on the main index
-            rows[main_index][combined_key] = value
+            # Iterate over parts to handle multiple nested levels
+            for part in parts[1:]:
+                # Handle outcome indices and properties, assuming format 'outcomes[0].label'
+                if 'outcomes' in part:
+                    try:
+                        outcome_idx = part.split('[')[1].split(']')[0]
+                    except IndexError:
+                        outcome_idx = 0
+                    property_name = part.split('.')[-1]
+                    column_name = f"outcomes[{outcome_idx}].{property_name}"
+                    rows[main_index][column_name] = value
+                else:
+                    # Direct properties without further nesting
+                    property_name = part
+                    if '.' in property_name:
+                        property_name = property_name.split('.')[1]  # Strip off any leading indices if still attached
+                    rows[main_index][property_name] = value
+
+        # Convert the dictionary of rows into a list of dictionaries for DataFrame creation
+        rows_list = [rows[key] for key in sorted(rows.keys())]
+
+        for i,row in enumerate(rows_list):
+            print(f"({i}) {row}")
+
+        # Create a DataFrame from the list of dictionaries
+        return pd.DataFrame(rows_list)
+
+  
+    @staticmethod
+    def flattened_props_offers_to_dataframe(d: Dict[str, Any]) -> pd.DataFrame:
+        # Initialize a dictionary to hold the processed rows
+        rows = {}
+
+        """
+        [5][0].isSubcategoryFeatured": false,
+        "[5][0].betOfferTypeId": 0,
+        "[5][0].providerCriterionId": "5207",
+        "[5][0].outcomes[0].providerOutcomeId": "0QA195641493#1789967200_13L88808Q11619917Q2-1",
+        "[5][0].outcomes[0].providerId": 2,
+        "[5][0].outcomes[0].providerOfferId": "195641493",
+        "[5][0].outcomes[0].label": "Over 3600.5",
+
+        ["[5", "[0", ".outcomes[0", ".label"]
+        """
+
+        # Parse the flattened data
+        for key, value in d.items():
+            # Split the key at '].' to handle nested properties correctly
+            parts = key.split(']')
+            main_index = int(parts[0][1:])  # Extract the main index, assuming format '[0]'
+            
+            # Initialize the row if it hasn't been started yet
+            if main_index not in rows:
+                rows[main_index] = {}
+
+            if 'outcomes' in key:
+                outcome_idx = parts[2][-1]
+                property_name = parts[-1][1:]
+                column_name = f'outcomes[{outcome_idx}]_{property_name}'
+            else:
+                column_name = parts[-1][1:]
+            
+            rows[main_index][column_name] = value
 
         # Convert the dictionary of rows into a list of dictionaries for DataFrame creation
         rows_list = [rows[key] for key in sorted(rows.keys())]
 
         # Create a DataFrame from the list of dictionaries
         return pd.DataFrame(rows_list)
+
 
     @staticmethod
     def split_series(series: pd.Series, delimiter: str, new_colnames: List[str]) -> pd.DataFrame:
