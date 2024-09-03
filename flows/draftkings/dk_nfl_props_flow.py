@@ -60,7 +60,7 @@ def issue_requests():
     # Main scraping loop.
     print("Scraping DraftKings for NFL season-long player props.")
     responses = dict()
-    nfl_seasonlong_eventgroup = get_event_group_by_name(api, 'nfl-seasonlong')
+    nfl_seasonlong_eventgroup = get_event_group_by_name(api, 'nfl')
     # Find the player-stats category.
     for category in nfl_seasonlong_eventgroup['categories']:
         if category['name'] == 'player-stats': 
