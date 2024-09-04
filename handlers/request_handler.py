@@ -105,6 +105,9 @@ class RequestHandler:
                 print("Success.")
                 self.sleep()
                 return response
+            except requests.HTTPError as e:
+                print(f"HTTPError:\n{e}")
+                return None
             except requests.RequestException as e:
                 print(f"Attempt {attempt + 1} failed: {e}")
                 sleep_secs = (2 ** attempt) * random.uniform(1, 2) # Exponential backoff with jitter

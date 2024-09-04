@@ -1,5 +1,6 @@
 xxx POC duckdb and prefect.
 xxx Determine repository structure
+- Calculate juice in TD markets by figuring out how many TDs expected in that game
 - Develop first flow
 - Data models for duckdb and S3
 - Deploy first flow
@@ -9,7 +10,5 @@ xxx Determine repository structure
 - Solicit feedback (jacob, brian, chris, justin, alex)
 - Run historical data ingest scripts
 - Set up game-by-game projections using scikitlearn and historical data
-
-- LLC setup
 
 - Check out Unabated
