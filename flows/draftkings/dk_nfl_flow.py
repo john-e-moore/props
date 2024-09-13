@@ -71,7 +71,11 @@ def upload_raw_data_s3(s3_handler: S3Handler, response: requests.Response, subca
     :param responses: Dictionary containing subcategory names and HTTP responses.
     """
     
-    json_obj = response.json()
+    try:
+        json_obj = response.json()
+    except AttributeError as e:
+        print(f"No JSON object found.\n{e}")
+        return None
     json_string_obj = json.dumps(json_obj)
     s3_handler.upload_object(
         obj=json_string_obj, 
