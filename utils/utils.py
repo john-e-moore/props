@@ -1,5 +1,6 @@
 import yaml
 import hashlib
+import re
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
@@ -42,3 +43,66 @@ def generate_timestamp() -> str:
     Generates the current timestamp in YYYYMMDDHHMMSS format.
     """
     return datetime.now().strftime("%Y%m%d%H%M%S")
+
+def extract_timestamp_from_filename(filename: str) -> str:
+    """
+    Extracts a 14-digit number from the given input string.
+
+    Args:
+        filename (str): The string to extract the number from.
+
+    Returns:
+        str: The extracted 14-digit number, or an empty string if no valid number is found.
+    """
+    # Use regex to find a sequence of 14 digits
+    match = re.search(r'\d{14}', filename)
+    
+    if match:
+        return match.group(0)  # Return the 14-digit number
+    else:
+        return ""  # Return an empty string if no match
+
+################################################################################
+# DraftKings response parsing
+################################################################################
+def parse_dk_offers(data: Dict[str, Any], timestamp: str) -> List[Dict[str, Any]]:
+    """
+    Parses the given data dictionary to extract and flatten information about offers and outcomes.
+
+    Convert to dataframe with "offers_df = pd.DataFrame(offers_data)"
+
+    Args:
+        data (Dict[str, Any]): The input dictionary containing offers and outcomes data.
+
+    Returns:
+        List[Dict[str, Any]]: A list of dictionaries where each item corresponds to one outcome, 
+                              containing fields related to the offer, outcome, subcategory ID, and name.
+    """
+    offers_data = []
+    for category in data.get("eventGroup", {}).get("offerCategories", []):
+        if "offerSubcategoryDescriptors" in category:
+            for subcategory in category["offerSubcategoryDescriptors"]:
+                if "offerSubcategory" in subcategory and "offers" in subcategory["offerSubcategory"]:
+                    for offer_list in subcategory["offerSubcategory"]["offers"]:  # offers is a list of lists
+                        for offer in offer_list:
+                            for outcome in offer["outcomes"]:
+                                # Flatten and capture the relevant fields for each outcome, including subcategory info
+                                offer_outcome = {
+                                    "subcategory_subcategoryId": subcategory.get("subcategoryId", None),
+                                    "subcategory_name": subcategory.get("name", ""),
+                                    "offer_label": offer.get("label", ""),
+                                    "offer_providerOfferId": offer.get("providerOfferId", ""),
+                                    "offer_eventId": offer.get("eventId", ""),
+                                    "offer_eventGroupId": offer.get("eventGroupId", ""),
+                                    "offer_playerNameIdentifier": offer.get("playerNameIdentifier", ""),
+                                    "outcome_label": outcome.get("label", ""),
+                                    "outcome_oddsAmerican": outcome.get("oddsAmerican", ""),
+                                    "outcome_oddsDecimal": outcome.get("oddsDecimal", None),
+                                    "outcome_line": outcome.get("line", None),  # Handle missing 'line'
+                                    "participant": outcome.get("participant", ""),
+                                    "participantType": outcome.get("participantType", ""),
+                                    # TODO: add participant details
+                                    "timestamp": timestamp
+                                }
+                                offers_data.append(offer_outcome)
+    return offers_data
