@@ -45,7 +45,7 @@ def extract_data():
 @task
 def upload_raw_to_s3(df):
     print(f"Raw data preview:\n{df.head()}")
-    s3 = S3Handler()
+    s3 = S3Handler(s3_bucket)
     s3.upload_obj_s3(
         bucket=s3_bucket,
         key=f'{s3_key}/example/raw/example_data.json',
@@ -61,7 +61,7 @@ def process_raw_data(df):
 
 @task
 def upload_processed_to_s3(df):
-    s3 = S3Handler()
+    s3 = S3Handler(s3_bucket)
     s3.upload_obj_s3(
         bucket=s3_bucket,
         key=f'{s3_key}/example/processed/example_data.json',
@@ -82,7 +82,6 @@ def load_processed_to_duckdb(df):
 def query_sum(table, column_name):
     # NOTE: fetch methods: fetchdf(), fetchall(), fetchone(), fetchnumpy(), fetch_df_chunk()
     with duckdb.connect(database=f'{db_path}/{db_name}') as conn:
-        conn = duckdb.connect(database=f'{db_path}/{db_name}')
         sum = conn.execute(f"SELECT SUM({column_name}) AS sum_values FROM {table};").fetchone()
     return sum
 
@@ -100,20 +99,21 @@ def example_flow(log_prints=log_prints, retries=retries, retry_delay_seconds=ret
     df_raw = extract_data()
 
     # Stage raw in S3
-    upload_raw_to_s3(df_raw)
+    #upload_raw_to_s3(df_raw)
 
     # Process data
     df_processed = process_raw_data(df_raw)
 
     # Stage processed in S3 (async)
-    future1 = upload_processed_to_s3.submit(df_processed)
+    #future1 = upload_processed_to_s3.submit(df_processed)
 
     # Load processed to duckdb (async)
-    future2 = load_processed_to_duckdb.submit(df_processed)
+    #future2 = load_processed_to_duckdb.submit(df_processed)
+    load_processed_to_duckdb(df_processed)
 
     # Get async results
-    future1_result = future1.result()
-    future2_result = future2.result()
+    #future1_result = future1.result()
+    #future2_result = future2.result()
 
     # Calculate and print sum of new values
     sum = query_sum('fact_example', 'value')
