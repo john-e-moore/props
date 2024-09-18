@@ -67,9 +67,11 @@ def extract_timestamp_from_filename(filename: str) -> str:
 ################################################################################
 def parse_dk_offers(data: Dict[str, Any], timestamp: str) -> List[Dict[str, Any]]:
     """
-    Parses the given data dictionary to extract and flatten information about offers and outcomes.
+    Parses the given data dictionary to extract and flatten information about 
+    offers and outcomes. Uses .get() to gracefully handle different formats,
+    i.e. TD scorers.
 
-    Convert to dataframe with "offers_df = pd.DataFrame(offers_data)"
+    Note: Convert return value to dataframe with "offers_df = pd.DataFrame(offers_data)"
 
     Args:
         data (Dict[str, Any]): The input dictionary containing offers and outcomes data.
@@ -88,7 +90,6 @@ def parse_dk_offers(data: Dict[str, Any], timestamp: str) -> List[Dict[str, Any]
                             for outcome in offer["outcomes"]:
                                 participants = outcome.get("participants", [])
                                 for participant in participants:
-                                    # Flatten and capture the relevant fields for each outcome, including subcategory info
                                     offer_outcome = {
                                         "subcategory_subcategoryId": subcategory.get("subcategoryId", None),
                                         "subcategory_name": subcategory.get("name", ""),
@@ -100,7 +101,7 @@ def parse_dk_offers(data: Dict[str, Any], timestamp: str) -> List[Dict[str, Any]
                                         "outcome_label": outcome.get("label", ""),
                                         "outcome_oddsAmerican": outcome.get("oddsAmerican", ""),
                                         "outcome_oddsDecimal": outcome.get("oddsDecimal", None),
-                                        "outcome_line": outcome.get("line", None),  # Handle missing 'line'
+                                        "outcome_line": outcome.get("line", None),
                                         "participant_id": participant.get("id", None),
                                         "participant_name": participant.get("name", ""),
                                         "participant_type": participant.get("type", ""),
