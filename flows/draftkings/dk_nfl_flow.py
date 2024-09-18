@@ -124,8 +124,8 @@ def upload_parsed_data_s3(s3_handler: S3Handler, combined_offers: str, subcatego
     )
 
 @task
-def load_parsed_data_duckdb(parsed_json, db_path_full):
-    table_name = "dk_offers_fact"
+def load_parsed_data_duckdb(parsed_json: dict, db_path_full: str) -> None:
+    table_name = "fact_dk_offers"
     duckdb_handler = DuckDBHandler(db_path_full)
 
     create_table_statement = f"""
@@ -149,7 +149,7 @@ def load_parsed_data_duckdb(parsed_json, db_path_full):
     """
     duckdb_handler.execute(create_table_statement)
 
-    combined_offers_df = pd.DataFrame(parsed_json)
+    combined_offers_df = pd.DataFrame(parsed_json, orient='records')
     combined_offers_df.to_csv('combined_offers.csv', index=False)
     duckdb_handler.insert_data(table_name, combined_offers_df)
 
@@ -235,13 +235,14 @@ def dk_nfl(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_del
     
     # Combine parsed offers and upload to S3
     combined_offers = [item for sublist in parsed_offers_list for item in sublist]
-    combined_offers_json = json.dumps(combined_offers, indent=4)
+    combined_offers_json_str = json.dumps(combined_offers, indent=4)
     print("Uploading parsed data.")
-    upload_parsed_data_s3(s3_handler, combined_offers_json, 'parsed_props', timestamp)
+    upload_parsed_data_s3(s3_handler, combined_offers_json_str, 'parsed_props', timestamp)
 
     # Insert into duckdb
     db_path_full = f"{db_path}/{db_name}"
-    load_parsed_data_duckdb(combined_offers_json, db_path_full)
+    combined_offers_json_obj = json.loads(combined_offers_json_str)
+    load_parsed_data_duckdb(combined_offers_json_obj, db_path_full)
 
     print("Done.")
 
