@@ -41,7 +41,7 @@ class S3Handler:
             if raise_exception:
                 raise
 
-    def upload_object(self, obj: bytes, object_name: str, base_key: str, file_extension: str, raise_exception: bool = False) -> None:
+    def upload_object(self, obj: bytes, object_name: str, base_key: str, file_extension: str, timestamp: str, raise_exception: bool = False) -> None:
         """
         Uploads an in-memory object (like bytes) to S3, appending a timestamp to ensure uniqueness.
 
@@ -49,7 +49,6 @@ class S3Handler:
         :param object_name: The name for the object in S3.
         :param raise_exception: If True, raises any exception that occurs, otherwise prints the error.
         """
-        timestamp = generate_timestamp()
         full_key = f"{base_key}/{object_name}_{timestamp}.{file_extension}"
         try:
             self.s3_client.put_object(Bucket=self.bucket_name, Key=full_key, Body=obj)

@@ -93,6 +93,17 @@ class DuckDBHandler:
         result = self.conn.execute(query).fetchdf()
         print(f"Query executed successfully")
         return result
+    
+    def execute(self, statement: str) -> pd.DataFrame:
+        """
+        Executes a SQL statement.
+        
+        :param query: The SQL statement string.
+        :return: None
+        """
+
+        self.conn.execute(statement)
+        print(f"Statement executed successfully")
 
     def __del__(self):
         """
