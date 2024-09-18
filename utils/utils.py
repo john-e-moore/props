@@ -86,23 +86,25 @@ def parse_dk_offers(data: Dict[str, Any], timestamp: str) -> List[Dict[str, Any]
                     for offer_list in subcategory["offerSubcategory"]["offers"]:  # offers is a list of lists
                         for offer in offer_list:
                             for outcome in offer["outcomes"]:
-                                # Flatten and capture the relevant fields for each outcome, including subcategory info
-                                offer_outcome = {
-                                    "subcategory_subcategoryId": subcategory.get("subcategoryId", None),
-                                    "subcategory_name": subcategory.get("name", ""),
-                                    "offer_label": offer.get("label", ""),
-                                    "offer_providerOfferId": offer.get("providerOfferId", ""),
-                                    "offer_eventId": offer.get("eventId", ""),
-                                    "offer_eventGroupId": offer.get("eventGroupId", ""),
-                                    "offer_playerNameIdentifier": offer.get("playerNameIdentifier", ""),
-                                    "outcome_label": outcome.get("label", ""),
-                                    "outcome_oddsAmerican": outcome.get("oddsAmerican", ""),
-                                    "outcome_oddsDecimal": outcome.get("oddsDecimal", None),
-                                    "outcome_line": outcome.get("line", None),  # Handle missing 'line'
-                                    "participant": outcome.get("participant", ""),
-                                    "participantType": outcome.get("participantType", ""),
-                                    # TODO: add participant details
-                                    "timestamp": timestamp
-                                }
-                                offers_data.append(offer_outcome)
+                                participants = outcome.get("participants", [])
+                                for participant in participants:
+                                    # Flatten and capture the relevant fields for each outcome, including subcategory info
+                                    offer_outcome = {
+                                        "subcategory_subcategoryId": subcategory.get("subcategoryId", None),
+                                        "subcategory_name": subcategory.get("name", ""),
+                                        "offer_label": offer.get("label", ""),
+                                        "offer_providerOfferId": offer.get("providerOfferId", ""),
+                                        "offer_eventId": offer.get("eventId", ""),
+                                        "offer_eventGroupId": offer.get("eventGroupId", ""),
+                                        "offer_playerNameIdentifier": offer.get("playerNameIdentifier", ""),
+                                        "outcome_label": outcome.get("label", ""),
+                                        "outcome_oddsAmerican": outcome.get("oddsAmerican", ""),
+                                        "outcome_oddsDecimal": outcome.get("oddsDecimal", None),
+                                        "outcome_line": outcome.get("line", None),  # Handle missing 'line'
+                                        "participant_id": participant.get("id", None),
+                                        "participant_name": participant.get("name", ""),
+                                        "participant_type": participant.get("type", ""),
+                                        "timestamp": timestamp
+                                    }
+                                    offers_data.append(offer_outcome)
     return offers_data
