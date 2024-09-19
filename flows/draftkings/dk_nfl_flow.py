@@ -150,6 +150,7 @@ def load_parsed_data_duckdb(parsed_json: dict, db_path_full: str) -> None:
     duckdb_handler.execute(create_table_statement)
 
     combined_offers_df = pd.DataFrame(parsed_json)
+    combined_offers_df['timestamp'] = pd.to_datetime(combined_offers_df['timestamp'], format='%Y%m%d%H%M%S')
     combined_offers_df.to_csv('combined_offers.csv', index=False)
     duckdb_handler.insert_data(table_name, combined_offers_df)
 
