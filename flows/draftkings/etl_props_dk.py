@@ -8,7 +8,7 @@ from io import StringIO
 import duckdb
 import pandas as pd
 from typing import Dict, Any, List, Optional
-from prefect import flow, task
+from prefect import flow, task, get_run_logger
 # Internal
 from handlers.s3_handler import S3Handler
 from handlers.request_handler import RequestHandler
@@ -53,30 +53,27 @@ log_prints = environment_config['prefect']['log_prints']
 # Tasks
 ################################################################################
 @task
-def issue_request(request_handler: RequestHandler, url: str):
+def issue_request(request_handler: RequestHandler, url: str, logger):
     """
     Request props data from each endpoint.
 
     :return: Dictionary containing subcategory names and HTTP responses.
     """
-            
-    print(f"Fetching data from {url}")
-            
+    logger.info(f"Fetching data from {url}")
     return request_handler.get(url, headers)
                     
 
 @task
-def upload_raw_data_s3(s3_handler: S3Handler, response: requests.Response, subcategory_name: str, timestamp: str) -> None:
+def upload_raw_data_s3(s3_handler: S3Handler, response: requests.Response, subcategory_name: str, timestamp: str, logger) -> None:
     """
     Converts objects to JSON strings and uploads to S3.
 
     :param response: requests.Response HTTP response (json).
     """
-    
     try:
         json_obj = response.json()
     except AttributeError as e:
-        print(f"No JSON object found.\n{e}")
+        logger.info(f"No JSON object found.\n{e}")
         return None
     json_string_obj = json.dumps(json_obj)
     s3_handler.upload_object(
@@ -89,7 +86,7 @@ def upload_raw_data_s3(s3_handler: S3Handler, response: requests.Response, subca
     
 
 @task
-def parse_raw_data(response: requests.Response, timestamp: str) -> list:
+def parse_raw_data(response: requests.Response, timestamp: str, logger) -> list:
     """
     Parses and flattens data from each endpoint, then concatenates the data
     into a Pandas DataFrame.
@@ -102,13 +99,13 @@ def parse_raw_data(response: requests.Response, timestamp: str) -> list:
     try:
         json_obj = response.json()
     except AttributeError as e:
-        print(f"No JSON object found.\n{e}")
+        logger.info(f"No JSON object found.\n{e}")
         return None
     
     return parse_dk_offers(json_obj, timestamp)
     
 @task
-def upload_parsed_data_s3(s3_handler: S3Handler, combined_offers: str, subcategory_name: str, timestamp: str) -> None:
+def upload_parsed_data_s3(s3_handler: S3Handler, combined_offers: str, subcategory_name: str, timestamp: str, logger) -> None:
     """
     Converts objects to JSON strings and uploads to S3.
 
@@ -124,7 +121,7 @@ def upload_parsed_data_s3(s3_handler: S3Handler, combined_offers: str, subcatego
     )
 
 @task
-def load_parsed_data_duckdb(parsed_json: dict, db_path_full: str) -> None:
+def load_parsed_data_duckdb(parsed_json: dict, db_path_full: str, logger) -> None:
     table_name = "fact_dk_offers"
     duckdb_handler = DuckDBHandler(db_path_full)
 
@@ -154,30 +151,6 @@ def load_parsed_data_duckdb(parsed_json: dict, db_path_full: str) -> None:
     combined_offers_df.to_csv('combined_offers.csv', index=False)
     duckdb_handler.insert_data(table_name, combined_offers_df)
 
-
-
-#######################################
-# Develop the last two transformations after the first 5 tasks are deployed;
-# no reason not to start filling the database
-@task
-def group_data_by_player():
-    # can do this in sql: transformations/sql
-    pass
-
-@task
-def compute_averages_from_vegas_odds():
-    # this should use stuff from transformations/python
-    pass
-
-@task
-def compute_fpts_columns():
-    # transformations/sql
-    pass
-
-@task
-def upload_final_dataset_s3():
-    pass
-
 ################################################################################
 # Flow
 ################################################################################
@@ -197,7 +170,8 @@ def dk_nfl(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_del
     7. Create DuckDB view computing fantasy points for every scoring system.
     8. Read the finished view and upload CSV to S3. 
     """
-    print(f"duckdb location: {db_path}/{db_name}")
+    logger = get_run_logger()
+    logger.info(f"duckdb location: {db_path}/{db_name}")
 
     s3_handler = S3Handler(s3_bucket)
 
@@ -208,17 +182,17 @@ def dk_nfl(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_del
         proxies=proxies
     )
     # Extract, load, and parse
-    print("Scraping DraftKings odds.")
+    logger.info("Scraping DraftKings odds.")
     nfl_seasonlong_eventgroup = get_event_group_by_name(api, 'nfl')
     parsed_offers_list = []
     for category in nfl_seasonlong_eventgroup['categories']:
         if category['name'] != 'player-stats': # Don't get full season stuff
-            print(f"Category: {category['name']}")
+            logger.info(f"Category: {category['name']}")
             # Check if subcategories exist
             if 'subcategories' in category and category['subcategories']:
                 for subcategory in category['subcategories']:
                     subcategory_name = subcategory['name']
-                    print(f"Subcategory: {subcategory_name}")
+                    logger.info(f"Subcategory: {subcategory_name}")
 
                     # Construct URL
                     url_params = {
@@ -227,25 +201,25 @@ def dk_nfl(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_del
                         'subcategory_id': subcategory['subcategory_id']
                     }
                     url = request_handler.construct_url(url_template, **url_params)
-                    response = issue_request(request_handler, url)
+                    response = issue_request(request_handler, url, logger)
                     # Use the timestamp of the response for all future operations
                     timestamp = generate_timestamp()
-                    upload_raw_data_s3(s3_handler, response, subcategory_name, timestamp)
-                    parsed_offers = parse_raw_data(response, timestamp)
+                    upload_raw_data_s3(s3_handler, response, subcategory_name, timestamp, logger)
+                    parsed_offers = parse_raw_data(response, timestamp, logger)
                     parsed_offers_list.append(parsed_offers)
     
     # Combine parsed offers and upload to S3
     combined_offers = [item for sublist in parsed_offers_list for item in sublist]
     combined_offers_json_str = json.dumps(combined_offers, indent=4)
-    print("Uploading parsed data.")
-    upload_parsed_data_s3(s3_handler, combined_offers_json_str, 'parsed_props', timestamp)
+    logger.info("Uploading parsed data.")
+    upload_parsed_data_s3(s3_handler, combined_offers_json_str, 'parsed_props', timestamp, logger)
 
     # Insert into duckdb
     db_path_full = f"{db_path}/{db_name}"
     combined_offers_json_obj = json.loads(combined_offers_json_str)
-    load_parsed_data_duckdb(combined_offers_json_obj, db_path_full)
+    load_parsed_data_duckdb(combined_offers_json_obj, db_path_full, logger)
 
-    print("Done.")
+    logger.info("Done.")
 
 
 if __name__ == "__main__":
