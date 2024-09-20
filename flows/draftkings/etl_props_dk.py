@@ -148,14 +148,13 @@ def load_parsed_data_duckdb(parsed_json: dict, db_path_full: str, logger) -> Non
 
     combined_offers_df = pd.DataFrame(parsed_json)
     combined_offers_df['timestamp'] = pd.to_datetime(combined_offers_df['timestamp'], format='%Y%m%d%H%M%S')
-    combined_offers_df.to_csv('combined_offers.csv', index=False)
     duckdb_handler.insert_data(table_name, combined_offers_df)
 
 ################################################################################
 # Flow
 ################################################################################
 @flow
-def dk_nfl(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_delay_seconds):
+def etl_props_dk(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_delay_seconds):
     """
     ***Extract / Load***
     1. Request props data from each endpoint.
@@ -223,10 +222,10 @@ def dk_nfl(log_prints=log_prints, retries=retries, retry_delay_seconds=retry_del
 
 
 if __name__ == "__main__":
-    dk_nfl.serve(
-        name='dk_nfl_props',
+    etl_props_dk.serve(
+        name='etl_props_dk',
         #cron='17 * * * *', # 17 just to be friendly to their server
-        tags=['dk', 'props'],
+        tags=['etl', 'dk', 'props'],
         # default description is flow's docstring
         version='0.1',
     )       
