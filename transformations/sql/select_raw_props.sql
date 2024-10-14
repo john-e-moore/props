@@ -10,7 +10,7 @@ with
 		from main.fact_dk_offers 
 		where 
 			outcome_label = 'Over'
-			/* fantasy stats categories */
+			/* fantasy-relevant stats categories */
 			and subcategory_name in (
 				'FG Made', 'Interceptions O/U', 'Pass TDs O/U', 'Pass Yards O/U', 'Rec Yards O/U',
 				'Receptions O/U', 'Rush + Rec Yards O/U', 'Rush Yards O/U', 'PAT Made'
@@ -24,7 +24,7 @@ with
 			subcategory_name ,
 			outcome_label ,
 			outcome_line ,
-			outcome_oddsAmerican::int as under_odds,
+			outcome_oddsAmerican::int as under_odds ,
 			timestamp
 		from main.fact_dk_offers 
 		where 
