@@ -137,18 +137,14 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
         elif row['subcategory_type'] == 'gamma':
             position = row['position']
             stat_category = category_map[row['subcategory_name']]
-            print(f"Position: {position}")
-            print(f"stat category: {stat_category}")
-            print(f"Gamma parameters:\n X: {row['outcome_line']}\n over_american: {row['over_odds']}\n under_american: {row['under_odds']}\n scale: {gamma_scales[position][stat_category]}")
+            #print(f"Position: {position}")
+            #print(f"stat category: {stat_category}")
+            #print(f"Gamma parameters:\n X: {row['outcome_line']}\n over_american: {row['over_odds']}\n under_american: {row['under_odds']}\n scale: {gamma_scales[position][stat_category]}")
             return gamma_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds'], gamma_scales[position][stat_category])
         else:
             return None
 
     df['mean_outcome'] = df.apply(calculate_mean_outcome, axis=1)
-
-    print(gamma_scales)
-
-    df.to_csv('result.csv', index=False)
 
     fpts_per = {
         'TD Scorer': 6,
@@ -164,6 +160,8 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
     }
     
     df['fpts_per'] = df['subcategory_name'].apply(lambda x: fpts_per[x])
+    df['fpts'] = df['mean_outcome'] * df['fpts_per']
+    df['fpts'] = df['fpts'].round(1)
 
     # Close the connection
     conn.close()
@@ -174,11 +172,31 @@ if __name__ == "__main__":
     db_path = '/mnt/c/Users/John/Documents/Personal/props/dev_warehouse.duckdb'
     sql_file_path = 'transformations/sql/select_raw_props.sql'
     
-    result_df = execute_query_and_calculate_props(db_path, sql_file_path)[[
+    df = execute_query_and_calculate_props(db_path, sql_file_path)[[
         'participant_name', 'subcategory_name', 'outcome_line',
-        'over_odds', 'under_odds', 'subcategory_type', 'mean_outcome', 'fpts_per']]
-    result_df.to_csv('props_output.csv', index=False)
-    print(result_df[result_df['subcategory_type'] == 'poisson'].head(20))
+        'over_odds', 'under_odds', 'subcategory_type', 'mean_outcome', 
+        'fpts_per', 'fpts', 'position'
+        ]]
+    df.to_csv('props_output.csv', index=False)
+    print("Saved raw results.")
+
+    # Pivot the dataframe
+    print(df.dtypes)
+    pivot_df = df.pivot_table(
+        index=['participant_name', 'position'],
+        values='fpts',
+        aggfunc='sum'
+    ).reset_index()
+
+    # Append a column with all 'subcategory_name' values for each player
+    subcategory_names = df.groupby(['participant_name', 'position'])['subcategory_name'].apply(lambda x: ', '.join(x.unique())).reset_index(name='subcategory_names')
+
+    # Merge the subcategory names back into the pivoted dataframe
+    pivot_df = pivot_df.merge(subcategory_names, on=['participant_name', 'position'])
+
+    # Save the pivoted dataframe to a new CSV
+    pivot_df.to_csv('pivoted_props_output.csv', index=False)
+    print("Saved pivoted table.")
     
     """
     ws = query_weekly_scores(db_path, 'fact_player_weekly', 'WR', 'receiving_yards')
