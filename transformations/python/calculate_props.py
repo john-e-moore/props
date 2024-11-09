@@ -3,6 +3,7 @@ import json
 import sys
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from collections import defaultdict
 from scipy.stats import poisson, norm, expon, lognorm, gamma
 from utils.stats_utils import calculate_vig_free_odds_and_vig, poisson_mean_from_market, gamma_mean_from_market, calculate_gamma_scale
@@ -141,10 +142,16 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
             #print(f"stat category: {stat_category}")
             #print(f"Gamma parameters:\n X: {row['outcome_line']}\n over_american: {row['over_odds']}\n under_american: {row['under_odds']}\n scale: {gamma_scales[position][stat_category]}")
             return gamma_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds'], gamma_scales[position][stat_category])
+        elif row['subcategory_type'] == 'normal':
+            # TODO: fill in
+            return 0
         else:
             return None
 
     df['mean_outcome'] = df.apply(calculate_mean_outcome, axis=1)
+
+    # Account for 20-25% juice on DK Anytime TD market
+    df.loc[df['subcategory_name'] == 'TD Scorer', 'mean_outcome'] *= (1 - 0.225)
 
     fpts_per = {
         'TD Scorer': 6,
@@ -177,26 +184,64 @@ if __name__ == "__main__":
         'over_odds', 'under_odds', 'subcategory_type', 'mean_outcome', 
         'fpts_per', 'fpts', 'position'
         ]]
-    df.to_csv('props_output.csv', index=False)
+
+    # Get the current timestamp in the format YYYYMMDDHHMMSS
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    # Save the raw results with a timestamp
+    df.to_csv(f'data/draftkings/player_projections/props_output_{timestamp}.csv', index=False)
     print("Saved raw results.")
 
+    
     # Pivot the dataframe
-    print(df.dtypes)
     pivot_df = df.pivot_table(
         index=['participant_name', 'position'],
-        values='fpts',
+        columns='subcategory_name',
+        values='mean_outcome',
         aggfunc='sum'
     ).reset_index()
+
+    #pivot_df = pivot_df.merge(df[['participant_name', 'fpts']], on='participant_name', how='inner')
+    # Merge the 'fpts' from 'df' into 'pivot_df'
+    fpts = df.groupby(['participant_name', 'position'])['fpts'].sum().reset_index()
+    pivot_df = pivot_df.merge(fpts, on=['participant_name', 'position'], how='left')
+    
+    # Reorder columns to place 'fpts' as the third column
+    cols = pivot_df.columns.tolist()
+    fpts_index = cols.index('fpts')
+    cols.insert(2, cols.pop(fpts_index))
+    pivot_df = pivot_df[cols]
 
     # Append a column with all 'subcategory_name' values for each player
     subcategory_names = df.groupby(['participant_name', 'position'])['subcategory_name'].apply(lambda x: ', '.join(x.unique())).reset_index(name='subcategory_names')
 
     # Merge the subcategory names back into the pivoted dataframe
     pivot_df = pivot_df.merge(subcategory_names, on=['participant_name', 'position'])
+    pivot_df = pivot_df.round(1)
+    # Remove ' O/U' and ' Scorer' from column names
+    pivot_df.columns = [col.replace(' O/U', '').replace(' Scorer', '') for col in pivot_df.columns]
 
-    # Save the pivoted dataframe to a new CSV
-    pivot_df.to_csv('pivoted_props_output.csv', index=False)
+    # Save the pivoted dataframe to a new CSV with a timestamp
+    pivot_df.to_csv(f'data/draftkings/player_projections/pivoted_props_output_{timestamp}.csv', index=False)
     print("Saved pivoted table.")
+    """
+    # Pivot the dataframe to include mean_outcome
+    pivot_df = df.pivot_table(
+        index=['participant_name', 'position'],
+        columns='subcategory_name',
+        values='mean_outcome',
+        aggfunc='sum'
+    ).reset_index()
+
+    # Flatten the MultiIndex columns and prepend subcategory names
+    pivot_df.columns = ['_'.join(col).strip() if col[1] else col[0] for col in pivot_df.columns.values]
+
+    # Append a column with all 'subcategory_name' values for each player
+    subcategory_names = df.groupby(['participant_name', 'position'])['subcategory_name'].apply(lambda x: ', '.join(x.unique())).reset_index(name='subcategory_names')
+
+    # Merge the subcategory names back into the pivoted dataframe
+    pivot_df = pivot_df.merge(subcategory_names, on=['participant_name', 'position'])
+    """
     
     """
     ws = query_weekly_scores(db_path, 'fact_player_weekly', 'WR', 'receiving_yards')
