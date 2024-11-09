@@ -206,9 +206,21 @@ def etl_props_dk(log_prints=log_prints, retries=retries, retry_delay_seconds=ret
                     upload_raw_data_s3(s3_handler, response, subcategory_name, timestamp, logger)
                     parsed_offers = parse_raw_data(response, timestamp, logger)
                     parsed_offers_list.append(parsed_offers)
+                    if parsed_offers_list:
+                        logger.info("Parsed offer list is not empty after updating for this category.")
+                    else:
+                        logger.info("Parsed offer list is empty after updating for this category.")
     
     # Combine parsed offers and upload to S3
-    combined_offers = [item for sublist in parsed_offers_list for item in sublist]
+    combined_offers = []
+    for sublist in parsed_offers_list:
+        if not sublist:
+            logger.info("Sublist is empty.")
+            continue
+        else:
+            logger.info("Sublist is not empty.")
+        for item in sublist:
+            combined_offers.append(item)
     combined_offers_json_str = json.dumps(combined_offers, indent=4)
     logger.info("Uploading parsed data.")
     upload_parsed_data_s3(s3_handler, combined_offers_json_str, 'parsed_props', timestamp, logger)
@@ -219,6 +231,7 @@ def etl_props_dk(log_prints=log_prints, retries=retries, retry_delay_seconds=ret
     load_parsed_data_duckdb(combined_offers_json_obj, db_path_full, logger)
 
     logger.info("Done.")
+    logger.info("Parsed offer list empty; database not updated.")
 
 
 if __name__ == "__main__":
