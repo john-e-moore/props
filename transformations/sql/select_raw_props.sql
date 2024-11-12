@@ -15,8 +15,14 @@ with
 				'FG Made', 'Interceptions O/U', 'Pass TDs O/U', 'Pass Yards O/U', 'Rec Yards O/U',
 				'Receptions O/U', 'Rush + Rec Yards O/U', 'Rush Yards O/U', 'PAT Made'
 			)
-			/* scraped today */
-			and date_trunc('day', timestamp) = (select date_trunc('day', max(timestamp)) from main.fact_dk_offers)
+			/* 
+			shortest run: 6:24
+			longest run: 7:13
+
+			using 15:00 as the timestamp cutoff; this should 
+			avoid pulling from older runs.
+			*/
+			and timestamp > (select max(timestamp) from main.fact_dk_offers) - interval '15 minutes'
 	),
 	unders as (
 		select
@@ -33,7 +39,7 @@ with
 				'FG Made', 'Interceptions O/U', 'Pass TDs O/U', 'Pass Yards O/U', 'Rec Yards O/U',
 				'Receptions O/U', 'Rush + Rec Yards O/U', 'Rush Yards O/U', 'PAT Made'
 			)
-			and date_trunc('day', timestamp) = (select date_trunc('day', max(timestamp)) from main.fact_dk_offers)
+			and timestamp > (select max(timestamp) from main.fact_dk_offers) - interval '15 minutes'
 	),
 	tds as (
 		select
@@ -47,7 +53,7 @@ with
 		where 
 			subcategory_name = 'TD Scorer'
 			and offer_label = 'Anytime TD Scorer'
-			and date_trunc('day', timestamp) = (select date_trunc('day', max(timestamp)) from main.fact_dk_offers)
+			and timestamp > (select max(timestamp) from main.fact_dk_offers) - interval '15 minutes'
 	)
 select
 	o.participant_name ,
