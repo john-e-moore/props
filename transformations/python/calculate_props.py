@@ -7,6 +7,7 @@ from datetime import datetime
 from collections import defaultdict
 from scipy.stats import poisson, norm, expon, lognorm, gamma
 from utils.stats_utils import calculate_vig_free_odds_and_vig, poisson_mean_from_market, gamma_mean_from_market, calculate_gamma_scale
+from utils.stats_utils import gamma_over_100_prob, evaluate_normal_distribution, fit_normal_to_qb_data
 
 def get_positions(
         conn,
@@ -132,27 +133,50 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
             gamma_scales[position][player_weekly_category] = scale
     # TODO: save these to json
     
-    def calculate_mean_outcome(row):
+    """
+    def calculate_mean_outcome_and_bonus_prob(row):
         if row['subcategory_type'] == 'poisson':
-            return poisson_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds'])
+            return (poisson_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds']), 0)
         elif row['subcategory_type'] == 'gamma':
             position = row['position']
             stat_category = category_map[row['subcategory_name']]
-            #print(f"Position: {position}")
-            #print(f"stat category: {stat_category}")
-            #print(f"Gamma parameters:\n X: {row['outcome_line']}\n over_american: {row['over_odds']}\n under_american: {row['under_odds']}\n scale: {gamma_scales[position][stat_category]}")
             return gamma_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds'], gamma_scales[position][stat_category])
         elif row['subcategory_type'] == 'normal':
             # TODO: fill in
-            return 0
+            return (0, 0)
         else:
-            return None
+            return (None, None)
 
-    df['mean_outcome'] = df.apply(calculate_mean_outcome, axis=1)
+    df[['mean_outcome', 'prob_bonus']] = df.apply(calculate_mean_outcome_and_bonus_prob, axis=1)
+    """
+    def calculate_mean_outcome_and_bonus_prob(row):
+        try:
+            #print(f"Row: {row.to_dict()}")
+            if row['subcategory_type'] == 'poisson':
+                result = (poisson_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds']), 0)
+            elif row['subcategory_type'] == 'gamma':
+                position = row['position']
+                stat_category = category_map[row['subcategory_name']]
+                result = gamma_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds'], gamma_scales[position][stat_category])
+            elif row['subcategory_type'] == 'normal':
+                # TODO: fill in
+                result = (0, 0)
+            else:
+                result = (0, 0)
+            
+            # Debugging output
+            print(f"Result: {result}")
+            return result
+        except Exception as e:
+            print(f"Error processing row: {row.to_dict()}, Error: {e}")
+            return (None, None)
+
+    df[['mean_outcome', 'prob_bonus']] = df.apply(calculate_mean_outcome_and_bonus_prob, axis=1, result_type='expand')
 
     # Account for 20-25% juice on DK Anytime TD market
     df.loc[df['subcategory_name'] == 'TD Scorer', 'mean_outcome'] *= (1 - 0.225)
 
+    # 
     fpts_per = {
         'TD Scorer': 6,
         'Receptions O/U': 1,
@@ -163,11 +187,11 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
         'Pass TDs O/U': 4,
         'Interceptions O/U': -2,
         'PAT Made': 1,
-        'FG Made': 3
+        'FG Made': 3,
     }
     
     df['fpts_per'] = df['subcategory_name'].apply(lambda x: fpts_per[x])
-    df['fpts'] = df['mean_outcome'] * df['fpts_per']
+    df['fpts'] = (df['mean_outcome'] * df['fpts_per']) + (df['prob_bonus'] * 3)
     df['fpts'] = df['fpts'].round(1)
 
     # Close the connection
@@ -182,7 +206,7 @@ if __name__ == "__main__":
     df = execute_query_and_calculate_props(db_path, sql_file_path)[[
         'participant_name', 'subcategory_name', 'outcome_line',
         'over_odds', 'under_odds', 'subcategory_type', 'mean_outcome', 
-        'fpts_per', 'fpts', 'position'
+        'fpts_per', 'fpts', 'prob_bonus', 'position'
         ]]
 
     # Get the current timestamp in the format YYYYMMDDHHMMSS
@@ -192,17 +216,18 @@ if __name__ == "__main__":
     df.to_csv(f'data/draftkings/player_projections/props_output_{timestamp}.csv', index=False)
     print("Saved raw results.")
 
-    
-    # Pivot the dataframe
+    # Pivot the dataframe to include both mean_outcome and prob_bonus
     pivot_df = df.pivot_table(
         index=['participant_name', 'position'],
         columns='subcategory_name',
-        values='mean_outcome',
+        values=['mean_outcome', 'prob_bonus'],
         aggfunc='sum'
     ).reset_index()
 
-    #pivot_df = pivot_df.merge(df[['participant_name', 'fpts']], on='participant_name', how='inner')
-    # Merge the 'fpts' from 'df' into 'pivot_df'
+    # Flatten the MultiIndex columns
+    pivot_df.columns = ['_'.join(col).strip() if col[1] else col[0] for col in pivot_df.columns.values]
+
+    # Append fpts
     fpts = df.groupby(['participant_name', 'position'])['fpts'].sum().reset_index()
     pivot_df = pivot_df.merge(fpts, on=['participant_name', 'position'], how='left')
     
@@ -224,31 +249,4 @@ if __name__ == "__main__":
     # Save the pivoted dataframe to a new CSV with a timestamp
     pivot_df.to_csv(f'data/draftkings/player_projections/pivoted_props_output_{timestamp}.csv', index=False)
     print("Saved pivoted table.")
-    """
-    # Pivot the dataframe to include mean_outcome
-    pivot_df = df.pivot_table(
-        index=['participant_name', 'position'],
-        columns='subcategory_name',
-        values='mean_outcome',
-        aggfunc='sum'
-    ).reset_index()
-
-    # Flatten the MultiIndex columns and prepend subcategory names
-    pivot_df.columns = ['_'.join(col).strip() if col[1] else col[0] for col in pivot_df.columns.values]
-
-    # Append a column with all 'subcategory_name' values for each player
-    subcategory_names = df.groupby(['participant_name', 'position'])['subcategory_name'].apply(lambda x: ', '.join(x.unique())).reset_index(name='subcategory_names')
-
-    # Merge the subcategory names back into the pivoted dataframe
-    pivot_df = pivot_df.merge(subcategory_names, on=['participant_name', 'position'])
-    """
     
-    """
-    ws = query_weekly_scores(db_path, 'fact_player_weekly', 'WR', 'receiving_yards')
-    print(ws[:5])
-    print(len(ws))
-
-    scale = calculate_gamma_scale(ws)
-    print(f"Scale: {scale}")
-    print(f"Mean: {np.mean(ws)}")
-    """
