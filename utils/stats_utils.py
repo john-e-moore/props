@@ -183,7 +183,7 @@ def gamma_mean_for_cdf_value(target_cdf, target_value, scale):
     
     return (mean, prob_greater_than_100)
 
-def fit_normal_to_qb_data(df):
+def fit_normal_to_qb_data(data: list):
     """
     Fit a Normal distribution to the passing yards of quarterbacks.
     
@@ -194,14 +194,14 @@ def fit_normal_to_qb_data(df):
     - mu, sigma: Parameters of the fitted Normal distribution (mean and standard deviation)
     """
     # Filter to include only quarterbacks with 10 or more pass attempts
-    filtered_data = df[(df['position'] == 'QB') & (df['attempts'] >= 10)]
+    #filtered_data = df[(df['position'] == 'QB') & (df['attempts'] >= 10)]
     
     # Fit a Normal distribution to the passing yards data
-    mu, sigma = norm.fit(filtered_data['passing_yards'])
+    mu, sigma = norm.fit(data)
     
     return mu, sigma
 
-def evaluate_normal_distribution(normal_params, X, over_american, under_american):
+def evaluate_normal_distribution(mu, sigma, X, over_american, under_american):
     """
     Evaluate a Normal distribution for a given probability and X value.
     
@@ -214,7 +214,7 @@ def evaluate_normal_distribution(normal_params, X, over_american, under_american
     - mean_passing_yards: Expected passing yards for a player with probability p of passing for more than X yards
     - prob_more_than_300: Probability of passing for more than 300 yards based on the Normal distribution
     """
-    mu, sigma = normal_params
+    #mu, sigma = normal_params
     p = calculate_vig_free_odds_and_vig(over_american, 'over', under_american)[0] # p(greater than x)
     
     # Determine the mean passing yards for a player with a probability p of passing for more than X yards

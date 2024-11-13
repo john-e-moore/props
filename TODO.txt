@@ -1,9 +1,11 @@
 xxx POC duckdb and prefect.
 xxx Determine repository structure
-- Calculate juice in TD markets by figuring out how many TDs expected in that game
-- Develop first flow
-- Data models for duckdb and S3
-- Deploy first flow
+xxx Calculate juice in TD markets by figuring out how many TDs expected in that game
+xxx Develop first flow
+xxx Data models for duckdb and S3
+xxx Deploy first flow
+- Schedule flow to download ETR draftkings projections
+- In fpts_calc flow, merge draftkings projections from S3
 - Display projections on pws
 - Architecture diagram using Visio
 - Update README

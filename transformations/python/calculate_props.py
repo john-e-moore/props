@@ -67,13 +67,23 @@ def query_weekly_scores(db_path, table_name, position, stat_category) -> list:
 
     # Execute the query and fetch the results into a DataFrame
     # TODO: may want to filter this further for a better scale.
-    query = f"""
+    if (position == 'QB') and (stat_category == 'passing_yards'):
+        query = f"""
         SELECT {stat_category} 
         FROM {table_name} 
         WHERE 
             position = '{position}' 
             AND {stat_category} > 0
+            AND attempts > 10
     """
+    else:
+        query = f"""
+            SELECT {stat_category} 
+            FROM {table_name} 
+            WHERE 
+                position = '{position}' 
+                AND {stat_category} > 0
+        """
     df = conn.execute(query).fetchdf()
     weekly_scores = df[f'{stat_category}'].tolist()
     
@@ -111,10 +121,12 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
         'Receptions O/U', 'TD Scorer', 'Interceptions O/U', 
         'Rushing TDs O/U', 'Pass TDs O/U'
     ]
-    #gamma_categories = ['Rush Yards O/U', 'Pass Yards O/U', 'Rec Yards O/U', 'Rush + Rec Yards O/U']
     gamma_categories = ['Rush Yards O/U', 'Pass Yards O/U', 'Rec Yards O/U']
-    df = df[df['subcategory_name'].isin(poisson_categories + gamma_categories)]
-    df['subcategory_type'] = df['subcategory_name'].apply(lambda x: 'poisson' if x in poisson_categories else 'gamma')
+    normal_categories = ['Pass Yards O/U']
+    df = df[df['subcategory_name'].isin(poisson_categories + gamma_categories + normal_categories)]
+    df['subcategory_type'] = df['subcategory_name'].apply(
+        lambda x: 'poisson' if x in poisson_categories else ('normal' if x in normal_categories else 'gamma')
+    )
     category_map = {
         'Rush Yards O/U': 'rushing_yards',
         'Rec Yards O/U': 'receiving_yards',
@@ -126,32 +138,17 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
     for position in positions:
         for category in gamma_categories:
             player_weekly_category = category_map[category]
-            print(f"Getting gamma scale for {position} / {player_weekly_category}")
             weekly_scores = query_weekly_scores(db_path, 'fact_player_weekly', position, player_weekly_category)
             shape, loc, scale = gamma.fit(weekly_scores)
-            print(scale)
             gamma_scales[position][player_weekly_category] = scale
-    # TODO: save these to json
-    
-    """
-    def calculate_mean_outcome_and_bonus_prob(row):
-        if row['subcategory_type'] == 'poisson':
-            return (poisson_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds']), 0)
-        elif row['subcategory_type'] == 'gamma':
-            position = row['position']
-            stat_category = category_map[row['subcategory_name']]
-            return gamma_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds'], gamma_scales[position][stat_category])
-        elif row['subcategory_type'] == 'normal':
-            # TODO: fill in
-            return (0, 0)
-        else:
-            return (None, None)
+        if position == 'QB':
+            player_weekly_category = category_map['Pass Yards O/U']
+            weekly_scores = query_weekly_scores(db_path, 'fact_player_weekly', position, player_weekly_category)
+            mu, sigma = fit_normal_to_qb_data(weekly_scores)
 
-    df[['mean_outcome', 'prob_bonus']] = df.apply(calculate_mean_outcome_and_bonus_prob, axis=1)
-    """
+    # TODO: save these to json
     def calculate_mean_outcome_and_bonus_prob(row):
         try:
-            #print(f"Row: {row.to_dict()}")
             if row['subcategory_type'] == 'poisson':
                 result = (poisson_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds']), 0)
             elif row['subcategory_type'] == 'gamma':
@@ -159,13 +156,9 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
                 stat_category = category_map[row['subcategory_name']]
                 result = gamma_mean_from_market(row['outcome_line'], row['over_odds'], row['under_odds'], gamma_scales[position][stat_category])
             elif row['subcategory_type'] == 'normal':
-                # TODO: fill in
-                result = (0, 0)
+                result = evaluate_normal_distribution(mu, sigma, row['outcome_line'], row['over_odds'], row['under_odds'])
             else:
                 result = (0, 0)
-            
-            # Debugging output
-            print(f"Result: {result}")
             return result
         except Exception as e:
             print(f"Error processing row: {row.to_dict()}, Error: {e}")
@@ -183,9 +176,9 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
         'Rush Yards O/U': 0.1,
         'Rec Yards O/U': 0.1,
         'Rush + Rec Yards O/U': 0,
-        'Pass Yards O/U': 0.025,
+        'Pass Yards O/U': 0.04,
         'Pass TDs O/U': 4,
-        'Interceptions O/U': -2,
+        'Interceptions O/U': -1,
         'PAT Made': 1,
         'FG Made': 3,
     }
@@ -242,7 +235,11 @@ if __name__ == "__main__":
 
     # Merge the subcategory names back into the pivoted dataframe
     pivot_df = pivot_df.merge(subcategory_names, on=['participant_name', 'position'])
-    pivot_df = pivot_df.round(1)
+
+    # Rounding
+    pivot_df[[col for col in pivot_df.columns if 'mean_outcome' in col]] = pivot_df[[col for col in pivot_df.columns if 'mean_outcome' in col]].round(1)
+    pivot_df[[col for col in pivot_df.columns if 'prob_bonus' in col]] = pivot_df[[col for col in pivot_df.columns if 'prob_bonus' in col]].round(2)
+
     # Remove ' O/U' and ' Scorer' from column names
     pivot_df.columns = [col.replace(' O/U', '').replace(' Scorer', '') for col in pivot_df.columns]
 
