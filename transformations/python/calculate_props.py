@@ -166,8 +166,12 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
 
     df[['mean_outcome', 'prob_bonus']] = df.apply(calculate_mean_outcome_and_bonus_prob, axis=1, result_type='expand')
 
-    # Account for 20-25% juice on DK Anytime TD market
-    df.loc[df['subcategory_name'] == 'TD Scorer', 'mean_outcome'] *= (1 - 0.225)
+    # Account for 20-25% juice on DK Anytime TD market (via Chris)
+    #df.loc[df['subcategory_name'] == 'TD Scorer', 'mean_outcome'] *= (1 - 0.225)
+    # New: inspecting a game, looks like closer to 11%
+    # My RB stuff will be even higher than ETR but I think ETR is low.
+    # Sabersim projections are more in line with mine in aggregate for RB
+    df.loc[df['subcategory_name'] == 'TD Scorer', 'mean_outcome'] *= (1 - 0.11)
 
     # 
     fpts_per = {
@@ -246,4 +250,28 @@ if __name__ == "__main__":
     # Save the pivoted dataframe to a new CSV with a timestamp
     pivot_df.to_csv(f'data/draftkings/player_projections/pivoted_props_output_{timestamp}.csv', index=False)
     print("Saved pivoted table.")
+
+    print(pivot_df.dtypes)
+
+    # Sabersim upload
+    # Add is_complete column based on position
+    def check_is_complete(row):
+        if row['position'] == 'QB':
+            required_columns = ['mean_outcome_Rush Yards', 'mean_outcome_Interceptions', 'mean_outcome_Pass TDs', 'mean_outcome_Pass Yards', 'mean_outcome_TD']
+        elif row['position'] == 'RB':
+            required_columns = ['mean_outcome_Receptions', 'mean_outcome_Rec Yards', 'mean_outcome_Rush Yards', 'mean_outcome_TD']
+        elif row['position'] in ['WR', 'TE']:
+            required_columns = ['mean_outcome_Receptions', 'mean_outcome_Rec Yards', 'mean_outcome_TD']
+        else:
+            return False
+        return all(pd.notnull(row[col]) for col in required_columns)
+
+    pivot_df['is_complete'] = pivot_df.apply(check_is_complete, axis=1)
+
+    print(pivot_df.head(20))
+
+    sabersim_df = pivot_df[['participant_name', 'fpts']][pivot_df['is_complete'] == True]
+    sabersim_df.columns = ['Name', 'Projection']
+    sabersim_df.to_csv(f'data/draftkings/player_projections/sabersim_upload_{timestamp}.csv', index=False)
+    
     
