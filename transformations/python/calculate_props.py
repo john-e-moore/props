@@ -118,7 +118,7 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
     print(df[['participant_name', 'position']].head())
 
     poisson_categories = [
-        'Receptions O/U', 'TD Scorer', 'Interceptions O/U', 
+        'Receptions', 'TD Scorer', 'Interceptions O/U', 
         'Rushing TDs O/U', 'Pass TDs O/U'
     ]
     gamma_categories = ['Rush Yards O/U', 'Pass Yards O/U', 'Rec Yards O/U']
@@ -176,7 +176,7 @@ def execute_query_and_calculate_props(db_path, sql_file_path):
     # 
     fpts_per = {
         'TD Scorer': 6,
-        'Receptions O/U': 1,
+        'Receptions': 1,
         'Rush Yards O/U': 0.1,
         'Rec Yards O/U': 0.1,
         'Rush + Rec Yards O/U': 0,

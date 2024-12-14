@@ -13,7 +13,7 @@ with
 			/* fantasy-relevant stats categories */
 			and subcategory_name in (
 				'FG Made', 'Interceptions O/U', 'Pass TDs O/U', 'Pass Yards O/U', 'Rec Yards O/U',
-				'Receptions O/U', 'Rush + Rec Yards O/U', 'Rush Yards O/U', 'PAT Made'
+				'Receptions', 'Rush + Rec Yards O/U', 'Rush Yards O/U', 'PAT Made'
 			)
 			/* 
 			shortest run: 6:24
@@ -37,7 +37,7 @@ with
 			outcome_label = 'Under'
 			and subcategory_name in (
 				'FG Made', 'Interceptions O/U', 'Pass TDs O/U', 'Pass Yards O/U', 'Rec Yards O/U',
-				'Receptions O/U', 'Rush + Rec Yards O/U', 'Rush Yards O/U', 'PAT Made'
+				'Receptions', 'Rush + Rec Yards O/U', 'Rush Yards O/U', 'PAT Made'
 			)
 			and timestamp > (select max(timestamp) from main.fact_dk_offers) - interval '15 minutes'
 	),
